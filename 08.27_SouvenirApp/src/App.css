@@ -1,0 +1,30 @@
+* {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-width: 1440px;
+  max-width: 1920px;
+  margin: 0 auto;
+  background: #FFF7E4;
+  color: #5E472F;
+  font-family: "NanumSquareRound";
+  font-optical-sizing: auto;
+  font-style: normal;
+  overflow-x: hidden;
+}
+
+a {
+  color: #5E472F;
+  text-decoration: none;
+}
+
+.warp1 {
+  width: 80%;
+  position: relative;
+}

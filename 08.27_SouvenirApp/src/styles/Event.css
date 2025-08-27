@@ -1,0 +1,148 @@
+@charset "UTF-8";
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+
+* {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    min-width: 1440px;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0;
+    font-family: "NanumSquareRound", serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    overflow-x: hidden;
+}
+
+.a_event_wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    font-family: "NanumSquareRound", serif;
+}
+
+.a_event_container {
+    width: 100%;
+    margin: 0 auto;
+    font-family: "NanumSquareRound", serif;
+}
+
+
+/* 초록배너 영역 */
+.a_event_banner {
+    position: relative;
+    margin-top: 50px;
+    width: 100%;
+    height: 250px;
+    background-color: #06301A;
+    border-radius: 30px;
+    padding: 50px 150px;
+    text-align: center;
+}
+
+.a_event_textbox {
+    margin-top: 30px;
+}
+
+.a_event_banner p {
+    color: #fff;
+    margin-bottom: 50px;
+    font-size: 18px;
+}
+
+.a_event_banner p.a_event_text1 {
+    font-size: 24px;
+}
+
+.a_event_banner img {
+    height: 150px;
+    position: absolute;
+    right: 250px;
+    bottom: 50px;
+}
+
+.a_event_mainbox {
+    margin: 50px 0;
+    padding: 100px 0;
+    border-radius: 30px;
+    background-size: cover;
+
+}
+
+.a_event_mainbox .letters {
+    padding: 0 50px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    justify-content: center;
+}
+
+.letter {
+    margin-top: 25px;
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    height: 340px;
+
+}
+
+.letter img {
+    width: 70%;
+    height: auto;
+}
+
+.a_event_title {
+    margin: 0 auto;
+    width: 50%;
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 100px;
+    background-color: #06301A;
+}
+
+.a_event_title p {
+    font-family: "Playfair Display", serif;
+    text-align: center;
+    color: #fff;
+    font-size: 24px;
+    font-weight: 400;
+}
+
+.a_event_buttons {
+    width: 450px;
+    margin: 0 auto;
+    margin-bottom: 50px;
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    justify-content: center;
+}
+
+.a_event_buttons button {
+    flex: 1;
+    border-radius: 10px;
+    height: 60px;
+    color: #fff;
+    font-size: 18px;
+    font-family: "NanumSquareRound", serif;
+}
+
+.a_event_buttons .a_event_button1 {
+    background-color: #5E472F;
+}
+
+.a_event_buttons .a_event_button2 {
+    background-color: #06301A;
+}
+
+/* 다른 편지 잠그기 효과 */
