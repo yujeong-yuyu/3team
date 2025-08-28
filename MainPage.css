@@ -1,0 +1,815 @@
+/* 배너 */
+/* 배너 */
+/* 배너 */
+/* 배너 */
+/* 배너 */
+
+#mainban {
+    width: 100%;
+    height: 700px;
+    display: flex;
+    margin-top: 15px;
+    margin-bottom: 30px;
+}
+
+.banner {
+    width: 88%;
+    height: 100%;
+    background: #9DA07E;
+    overflow: hidden;
+    position: relative;
+    margin-right: 30px;
+}
+
+.banul {
+    display: flex;
+    width: 300%;
+    height: 100%;
+    animation: slide 9s infinite;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    animation: slide 13s ease-in-out infinite;
+}
+
+.banul li {
+    flex: 0 0 calc(100% / 3);
+    flex-shrink: 0;
+}
+
+.banul img {
+    width: 100%;
+    object-fit: fill;
+}
+
+@keyframes slide {
+    0% {
+        transform: translateX(0%);
+    }
+
+    /* 1 */
+    20% {
+        transform: translateX(0%);
+    }
+
+    /* 1 멈춤 */
+
+    35% {
+        transform: translateX(-33.333%);
+    }
+
+    /* → 2 */
+    50% {
+        transform: translateX(-33.333%);
+    }
+
+    /* 2 멈춤 */
+
+    65% {
+        transform: translateX(-66.666%);
+    }
+
+    /* → 3 */
+    80% {
+        transform: translateX(-66.666%);
+    }
+
+    /* 3 멈춤 */
+
+    100% {
+        transform: translateX(-66.666%);
+    }
+}
+
+.myinpo {
+    width: 400px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.myinpotop {
+    width: 100%;
+    height: 30%;
+    /* 유정추가 */
+    background-color: #06301A;
+    color: #fff;
+    padding: 15px;
+}
+
+.myinpotop p {
+    font-family: sans-serif;
+    /* 유정추가 */
+    text-align: right;
+    margin-top: 50px;
+}
+
+/* 유정추가 */
+/* 유정추가 */
+.main_nickname {
+    text-align: right;
+    font-size: 1.2rem;
+    font-weight: 550;
+}
+
+.weather-header {
+    font-size: 1.4rem;
+    font-family: "Playfair Display", serif;
+    margin-bottom: 10px;
+}
+
+.weather-card {
+    text-align: left;
+    font-family: "NanumSquareRound", serif;
+}
+
+.weather-card span.weather-temp,
+.weather-card span.weather-desc {
+    font-size: 1.3rem;
+    margin-left: 10px;
+    font-weight: 500;
+}
+
+.myinpobottom {
+    height: 85%;
+    background-color: #9DA07E;
+    overflow: hidden;
+    border-radius: 5px;
+}
+
+.myinpoul {
+    width: 300%;
+    height: 100%;
+    display: flex;
+    margin: 0;
+    padding: 0;
+    animation: banner-slide 10s ease-in-out infinite alternate;
+    will-change: transform;
+}
+
+.myinpoul li {
+    flex: 0 0 33.3333%;
+    height: 100%;
+    background-size: cover;
+    background-position: center center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.myinpobottom:hover .myinpoul {
+    animation-play-state: paused;
+}
+
+.ban2img1 {
+    width: 100%;
+    background: url("https://00anuyh.github.io/SouvenirImg/ban2img1.png") no-repeat;
+    background-size: contain;
+}
+
+.ban2img2 {
+    width: 100%;
+    background: url("https://00anuyh.github.io/SouvenirImg/ban2img2.png") no-repeat;
+    background-size: contain;
+}
+
+.ban2img3 {
+    width: 100%;
+    background: url("https://00anuyh.github.io/SouvenirImg/ban2img3.png") no-repeat;
+    background-size: contain;
+}
+
+@keyframes banner-slide {
+    0% {
+        transform: translateX(0%);
+    }
+
+    /* 1 */
+    20% {
+        transform: translateX(0%);
+    }
+
+    /* 1 멈춤 */
+
+    35% {
+        transform: translateX(-33.333%);
+    }
+
+    /* → 2 */
+    50% {
+        transform: translateX(-33.333%);
+    }
+
+    /* 2 멈춤 */
+
+    65% {
+        transform: translateX(-66.666%);
+    }
+
+    /* → 3 */
+    80% {
+        transform: translateX(-66.666%);
+    }
+
+    /* 3 멈춤 */
+
+    100% {
+        transform: translateX(-66.666%);
+    }
+}
+
+/* 서브메뉴 */
+/* 서브메뉴 */
+/* 서브메뉴 */
+/* 서브메뉴 */
+/* 서브메뉴 */
+
+#subnav {
+    width: 100%;
+    height: 125px;
+    margin-bottom: 50px;
+}
+
+#menu3 {
+    height: 125px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    list-style: none;
+    padding: 20px 0;
+    box-sizing: border-box;
+}
+
+#menu3 .menu a {
+    font-family: sans-serif;
+    font-size: 1.4rem;
+    font-weight: 500;
+}
+
+#menu3 li {
+    width: 64px;
+    height: 60px;
+    font-family: sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 1.4px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+#menu3 li a {
+    width: 100%;
+    height: 100%;
+    background-color: #9DA07E;
+    border-radius: 5px;
+    color: #F2EADD;
+    font-size: 2.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#menu3 li:hover * {
+    background-color: #06301A;
+    color: #fff;
+}
+
+
+/* 섹션 (1) */
+/* 섹션 (1) */
+/* 섹션 (1) */
+/* 섹션 (1) */
+/* 섹션 (1) */
+
+#mainsec1 {
+    width: 100%;
+    height: auto;
+    margin-bottom: 150px;
+}
+
+.sec1 {
+    display: flex;
+}
+
+
+.sec1ul {
+    display: grid;
+    grid-template-columns: 320px 320px 1fr;
+    gap: 10px;
+}
+
+.sec1img {
+    width: 320px;
+    height: 320px;
+    font-family: "Playfair Display", serif;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    padding: 10px;
+    position: relative;
+}
+
+.sec1ul .sec1img p {
+    display: none;
+    position: relative;
+    z-index: 2;
+}
+
+.sec1ul .sec1img:hover::after {
+    opacity: 1;
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(100, 100, 100, 0.4);
+    z-index: 1;
+}
+
+
+.sec1ul .sec1img:hover p {
+    display: inline-flex;
+    align-items: center;
+    color: #fff;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.num1 {
+    background: url("https://00anuyh.github.io/SouvenirImg/sec1img1.png") no-repeat;
+    background-size: contain;
+}
+
+.num2 {
+    background: url("https://00anuyh.github.io/SouvenirImg/sec1img2.png") no-repeat;
+    background-size: cover;
+}
+
+.num3 {
+    background: url("https://00anuyh.github.io/SouvenirImg/sec1img3.png") no-repeat;
+    background-size: cover;
+}
+
+.num4 {
+    background: url("https://00anuyh.github.io/SouvenirImg/sec1img4.png") no-repeat;
+    background-size: contain;
+}
+
+.sec1ban {
+    width: 100%;
+    height: auto;
+    background-color: #5E472F;
+    margin-left: 30px;
+}
+
+.sec1ban .sec1img p {
+    display: inline-flex;
+    align-items: center;
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 600;
+    padding: 10px;
+}
+
+.num5 {
+    width: 430px;
+    height: 100%;
+    background: url("https://00anuyh.github.io/SouvenirImg/sec1img5.png") no-repeat;
+    background-size: cover;
+    background-position: center center;
+}
+
+.sec1li {
+    width: 320px;
+    height: 320px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 10px;
+}
+
+.sec1li span {
+    text-align: left;
+    font-size: 1.4rem;
+    margin-bottom: 30px;
+    font-weight: 450;
+}
+
+.sec1li p {
+    font-size: 0.925rem;
+    line-height: 200%;
+}
+
+
+
+
+
+/* 섹션 (2) */
+/* 섹션 (2) */
+/* 섹션 (2) */
+/* 섹션 (2) */
+/* 섹션 (2) */
+
+#mainsec2 {
+    width: 100%;
+    margin-bottom: 150px;
+    position: relative;
+}
+
+.sec2 {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 20px;
+}
+
+.sec2Slide {
+    width: 250px;
+    height: 250px;
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    position: relative;
+    overflow: hidden;
+}
+
+.sec2Slide p {
+    display: none;
+    position: relative;
+    z-index: 2;
+}
+
+
+.sec2Slide:hover p .IoMdHeartEmpty {
+    font-size: 1.2rem;
+}
+
+.sec2Slide:hover p span {
+    font-size: 1.2rem;
+    font-weight: 600;
+
+}
+
+.sec2Slide:hover::after {
+    opacity: 1;
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(100, 100, 100, 0.4);
+    z-index: 1;
+}
+
+.sec2Slide:hover p {
+    display: inline-block;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 200%;
+}
+
+.sec2img1 {
+    background: url('https://00anuyh.github.io/SouvenirImg/sec1img1.png') no-repeat;
+    background-size: cover;
+}
+
+.sec2img2 {
+    background: url('https://00anuyh.github.io/SouvenirImg/sec1img2.png') no-repeat;
+    background-size: cover;
+}
+
+.sec2img3 {
+    background: url('https://00anuyh.github.io/SouvenirImg/sec1img3.png') no-repeat;
+    background-size: cover;
+}
+
+.sec2img4 {
+    background: url('https://00anuyh.github.io/SouvenirImg/sec1img4.png') no-repeat;
+    background-size: cover;
+}
+
+.sec2img5 {
+    background: url('https://00anuyh.github.io/SouvenirImg/sec1img5.jpg') no-repeat;
+    background-size: cover;
+}
+
+.sec2more {
+    position: absolute;
+    top: -10px;
+    right: -100px;
+    display: inline-block;
+}
+
+.sec2more img {
+    display: block;
+    animation: spin 13s linear infinite;
+    transform-origin: center;
+}
+
+.sec2more .sec2Arrow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    color: #000000af;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    /* 클릭 막지 않게 */
+}
+
+/* hover 시 나타남 */
+.sec2more:hover .sec2Arrow {
+    opacity: 1;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 섹션 (3) */
+/* 섹션 (3) */
+/* 섹션 (3) */
+/* 섹션 (3) */
+/* 섹션 (3) */
+#mainsec3 {
+    width: 100%;
+    margin-bottom: 150px;
+}
+
+#mainsec3 h3 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+}
+
+.sec3card {
+    width: 300px;
+    height: 340px;
+    background: #FFFFFF;
+    border-radius: 6px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+
+/* 폴라로이드 사진 부분(배경처리) */
+.sec3bg {
+    background-position: center center;
+    margin: 10px auto;
+    border-radius: 5px;
+    width: 270px;
+    height: 270px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+}
+
+.sec3bg a {
+    width: 100%;
+    color: #fff;
+    font-weight: 500;
+    text-align: right;
+    padding: 3px 5px;
+}
+
+.sec3bg1 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community1.png') no-repeat;
+}
+
+.sec3bg2 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community2.png') no-repeat;
+}
+
+.sec3bg3 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community3.png') no-repeat;
+}
+
+.sec3bg4 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community1.png') no-repeat;
+}
+
+.sec3bg5 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community1.png') no-repeat;
+}
+
+.sec3bg6 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community1.png') no-repeat;
+}
+
+.sec3bg7 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community1.png') no-repeat;
+}
+
+.sec3bg8 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community1.png') no-repeat;
+}
+
+.sec3bg9 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community1.png') no-repeat;
+}
+
+.sec3bg10 {
+    background: url('https://00anuyh.github.io/SouvenirImg/community1.png') no-repeat;
+}
+
+
+/* 폴라로이드 글 부분 */
+.card-text {
+    padding: 10px 16px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+        "tag date"
+        "title title";
+    row-gap: 6px;
+}
+
+.card-text p,
+.card-text time {
+    color: #333;
+    font-size: .9rem;
+    text-align: left;
+}
+
+.sec3tag {
+    grid-area: tag;
+    font-size: .85rem;
+    color: #777;
+}
+
+.sec3date {
+    grid-area: date;
+    font-size: .78rem;
+    color: #9a9a9a;
+    text-align: right;
+}
+
+.sec3title {
+    grid-area: title;
+    font-size: .95rem;
+    color: #222;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-top: 10px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* 스와이퍼 css */
+/* 스와이퍼 css */
+/* 스와이퍼 css */
+/* 스와이퍼 css */
+/* 스와이퍼 css */
+.mySwiper {
+    width: 100%;
+    overflow: hidden;
+}
+
+.Community-swiper .swiper-button-next,
+.Community-swiper .swiper-button-prev {
+    color: #FFF7E4;
+}
+
+.swiper-pagination-bullet {
+    background: #06301A;
+    opacity: .3;
+}
+
+.swiper-pagination-bullet-active {
+    background: #06301A;
+    opacity: 31;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* 마지막 섹션 */
+/* 마지막 섹션 */
+/* 마지막 섹션 */
+/* 마지막 섹션 */
+/* 마지막 섹션 */
+
+#mainsec4 {
+    margin-bottom: 150px;
+}
+
+.end-swiper {
+    width: 100%;
+    height: 700px;
+}
+
+.sec4img1,
+.sec4img2,
+.sec4img3 {
+    position: relative;
+    height: 100%;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.sec4img1 {
+    background-image: url('https://00anuyh.github.io/SouvenirImg/sec4img1.jpeg');
+}
+
+.sec4img2 {
+    background-image: url('https://00anuyh.github.io/SouvenirImg/sec4img2.jpg');
+}
+
+.sec4img3 {
+    background-image: url('https://00anuyh.github.io/SouvenirImg/sec4img3.jpg');
+}
+
+.sec4img1::after,
+.sec4img2::after,
+.sec4img3::after {
+    z-index: 1;
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.end-swiper span {
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 1px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: "Playfair Display", serif;
+}
+
+.end-swiper p {
+    z-index: 2;
+    font-size: 1.8rem;
+    font-weight: 500;
+    color: #ddd;
+    letter-spacing: 1px;
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: "Playfair Display", serif;
+}

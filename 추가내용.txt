@@ -1,0 +1,79 @@
+!!-- .env 파일안에 추가 --!! 
+
+REACT_APP_OPENWEATHER_KEY=2d716819141b4f3bca6ca986f2485d73
+
+
+!!-- components 폴더안에 추가 --!! 
+
+WeatherCard
+
+
+!!-- 메인페이지 파일 안에 추가 --!!
+
+import WeatherCard from "../components/WeatherCard";
+
+const MyInfo = memo(function MyInfo() {
+  return (
+    <div className="myinpo">
+      <div className="myinpotop">
+        <WeatherCard lat={37.5665} lon={126.9780} />
+        <p>
+          <span className="main_nickname">임재형님</span> 반갑습니다
+        </p>
+      </div>
+      <div className="myinpobottom">
+        <ul className="myinpoul">
+          <li className="ban2slide ban2img1" />
+          <li className="ban2slide ban2img2" />
+          <li className="ban2slide ban2img3" />
+        </ul>
+      </div>
+    </div>
+  );
+});
+
+
+!!-- 메인페이지 css 파일 안에 추가 --!!
+
+
+.myinpotop {
+    width: 100%;
+    height: 30%;
+    /* 유정추가 */
+    background-color: #06301A;
+    color: #fff;
+    padding: 15px;
+}
+
+.myinpotop p {
+    font-family: sans-serif;
+    /* 유정추가 */
+    text-align: right;
+    margin-top: 50px;
+}
+
+/* 유정추가 */
+/* 유정추가 */
+.main_nickname {
+    text-align: right;
+    font-size: 1.2rem;
+    font-weight: 550;
+}
+
+.weather-header {
+    font-size: 1.4rem;
+    font-family: "Playfair Display", serif;
+    margin-bottom: 10px;
+}
+
+.weather-card {
+    text-align: left;
+    font-family: "NanumSquareRound", serif;
+}
+
+.weather-card span.weather-temp,
+.weather-card span.weather-desc {
+    font-size: 1.3rem;
+    margin-left: 10px;
+    font-weight: 500;
+}
