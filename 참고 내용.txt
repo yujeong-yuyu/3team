@@ -1,0 +1,62 @@
+!!-- mainpage 파일안에 추가 --!! 
+
+
+import { useAuth } from "../context/AuthContext";
+
+const MyInfo = memo(function MyInfo() {
+  /* 유정추가 */
+  const { isLoggedIn, user } = useAuth();
+  return (
+    <div className="myinpo">
+      <div className="myinpotop">
+        <WeatherCard lat={37.5665} lon={126.9780} />
+        <p>{/* 유정추가 */}
+          <span className="main_nickname">{isLoggedIn?.local ? (user?.name) + "님" : "회원님"}</span> 반갑습니다
+        </p>
+      </div>
+---------------------------------------
+
+
+!!-- footer파일안에 추가 --!! 
+
+
+<div id="footerwrap">
+                {/* 상단 고객센터 */}
+                <div id="topfoo">
+                    <div className="foocenter">
+                        <p className="footitle">고객센터 &gt;</p>
+                        <p className="foophone">1670-1234</p>
+                        <p className="footime">운영시간 : 09:00 ~ 18:00</p>
+                    </div>
+                    <div className="foosocial">
+                        <span className="foocircle"><img src='/img/sns_logo1.png' alt='sns_logo1'></img></span>
+                        <span className="foocircle"><img src='/img/sns_logo2.png' alt='sns_logo2'></img></span>
+                        <span className="foocircle"><img src='/img/sns_logo3.png' alt='sns_logo3'></img></span>
+                        <span className="foocircle"><img src='/img/sns_logo4.png' alt='sns_logo4'></img></span>
+                    </div>
+                </div>
+---------------------------------------
+
+
+!!-- footercss 에 추가 --!! 
+
+
+#topfoo .foosocial {
+    display: flex;
+    gap: 15px;
+    align-items: end;
+}
+
+/* #topfoo .foocircle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #fff;
+    display: inline-block;
+} */
+
+#topfoo .foocircle img {
+    margin-top: 50px;
+    width: 34px;
+    height: 34px;
+}
