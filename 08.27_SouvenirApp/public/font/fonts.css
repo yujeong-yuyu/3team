@@ -1,7 +1,0 @@
-@font-face {
-  font-family: 'NanumSquareRound';
-  src: url('/font/NanumSquareRoundOTFR.otf') format('opentype'); /* 지금은 otf만 */
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
