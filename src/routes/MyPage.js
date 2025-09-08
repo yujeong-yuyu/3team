@@ -1,10 +1,11 @@
+// src/pages/MyPage.jsx
 import { useEffect, useMemo, useState } from "react";
-
 import { useAuth } from "../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
-
 import { getRewards } from "../utils/rewards";
 import { getSession } from "../utils/localStorage";
+import { loadOrders, ORDERS_UPDATED_EVENT } from "../utils/orders";
+import { getCart } from "../utils/cart";
 
 import { HiBell } from "react-icons/hi2";
 import { FaGear } from "react-icons/fa6";
@@ -13,9 +14,10 @@ import "../css/mypage.css";
 import GiftModal from "../components/GiftModal";
 
 
+
 const KEY_BASE = "souvenirEventResult";
 const keyFor = (uid) => (uid ? `${KEY_BASE}:${uid}` : KEY_BASE);
-
+const CDN = "https://00anuyh.github.io/SouvenirImg";
 
 const fmt = (d) => {
   const date = new Date(d);
@@ -29,74 +31,168 @@ const addDays = (d, n) => {
   x.setDate(x.getDate() + n);
   return x;
 };
+const resolveImg = (src) => {
+  if (!src) return "/img/placeholder.png";
+  return /^https?:\/\//i.test(src) ? src : `${CDN}${src}`;
+};
 
 
+// cart_v1 기반 보조 변환기 (저장소가 비었을 때만 사용)
+function ordersFromCart() {
+  const cart = getCart(); // [{ key, name, thumb, price, delivery, qty, purchasedAt, lastOrderId, ... }]
+  const tagged = (cart || []).filter((it) => it.purchasedAt && it.lastOrderId);
+
+  const map = new Map();
+  for (const it of tagged) {
+
+
+    const id = String(it.lastOrderId); // 주문번호는 그대로 사용
+    const g =
+      map.get(id) ||
+      {
+        orderId: id,
+        purchasedAt: 0,
+        date: "",
+        items: [],
+        totals: { product: 0, delivery: 0, grandTotal: 0 },
+        status: "결제완료",
+      };
+
+    // 카트 라인 → 주문 라인아이템으로 변환
+    const item = {
+      title: it.name || it.title || "-",
+      image: it.image || it.thumb || null,               // ★ 없으면 thumb 사용
+      optionLabel: it.optionLabel || "",
+      qty: Number(it.qty || 1),
+      unitPrice: Number(it.price ?? it.unitPrice ?? it.basePrice ?? 0),
+      deliveryCost: Number(it.delivery ?? it.deliveryCost ?? 0),
+      brand: it.brand || "",
+      color: it.color || "-",
+      size: it.size || "-",
+      orderNo: it.orderNo || "-",
+    };
+
+    g.items.push(item);
+    g.totals.product += item.unitPrice * item.qty;
+    g.totals.delivery += item.deliveryCost;
+    g.totals.grandTotal = g.totals.product + g.totals.delivery;
+
+    const paid = Number(it.purchasedAt || 0);
+    if (paid > (g.purchasedAt || 0)) {
+      g.purchasedAt = paid;
+      const d = new Date(paid);
+      g.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate()
+      ).padStart(2, "0")}`;
+    }
+
+    map.set(id, g);
+  }
+
+
+  // purchasedAt 내림차순
+  return Array.from(map.values()).sort((a, b) => b.purchasedAt - a.purchasedAt);
+}
+
+// 원화
+const fmtWon = (n) => `${new Intl.NumberFormat("ko-KR").format(Number(n || 0))}원`;
+
+// 날짜 문자열 → Date (YYYY-MM-DD 또는 YYYY.MM.DD)
+const toDate = (s) => {
+  if (!s) return new Date(0);
+  return new Date(String(s).replaceAll(".", "-"));
+};
 
 const MyPage = () => {
-  const [rewards, setRewardsState] = useState({ coupons: 0, gifts: 0 });
+  const [rewards, setRewardsState] = useState({ points: 0, coupons: 0, gifts: 0 });
   const [eventData, setEventData] = useState(null);
   const [open, setOpen] = useState(false);
+  const [orders, setOrders] = useState([]);
+
   const { isLoggedIn, user, logoutAll } = useAuth();
   const navigate = useNavigate();
   const isAuthed = !!isLoggedIn?.local;
   const loggedIn = !!isLoggedIn?.local;
 
-  //보상
-  const s = getSession();
-  const uid = s?.username || s?.userid || null;
-  const r = getRewards(uid);
-
-
-
-  useEffect(() => {
-    if (!isAuthed) {
-      setRewardsState({ coupons: 0, gifts: 0 }); // ✅ 로그아웃 즉시 0
-      setEventData(null);
-      return;
-    }
+  const getUid = () => {
     const s = getSession();
-    const uid = s?.username || null;
+    return s?.username || s?.userid || null;
+  };
+
+  const refreshPageData = () => {
+    const uid = getUid();
+
+    // 이벤트
+    try {
+      const raw = localStorage.getItem(keyFor(uid));
+      setEventData(raw ? JSON.parse(raw) : null);
+    } catch {
+      setEventData(null);
+    }
+
+    // 리워드
     const r = getRewards(uid);
     setRewardsState({
       points: Number(r.points) || 0,
       coupons: Number(r.coupons) || 0,
       gifts: Number(r.gifts) || 0,
     });
+
+    // ★ 최근주문: 저장소 우선, 없으면 cart_v1 보조
+    const saved = loadOrders(uid) || [];
+    const fallback = ordersFromCart();
+    const base = saved.length ? saved : fallback;
+    const sorted = [...base].sort((a, b) => toDate(b.date) - toDate(a.date));
+    setOrders(sorted);
+  };
+
+  useEffect(() => { refreshPageData(); }, []);
+  useEffect(() => {
+    if (!isAuthed) {
+      setRewardsState({ points: 0, coupons: 0, gifts: 0 });
+      setEventData(null);
+      setOrders([]);
+      return;
+    }
+    refreshPageData();
   }, [isAuthed]);
 
-
-  // 이벤트 결과 로드
   useEffect(() => {
-    try {
-      const s = getSession();
-      const uid = s?.username || s?.userid || null;
-      const raw = localStorage.getItem(keyFor(uid));
-      setEventData(raw ? JSON.parse(raw) : null);
-    } catch {
-      setEventData(null);
-    }
-  }, []);
-  useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState === "visible") {
-        try {
-          const s = getSession();
-          const uid = s?.username || s?.userid || null;
-          const raw = localStorage.getItem(keyFor(uid));
-          setEventData(raw ? JSON.parse(raw) : null);
-        } catch { setEventData(null); }
-        const uid = getSession()?.username || null;
-        const r = getRewards(uid);
-        setRewardsState({ points: Number(r.points) || 0, coupons: Number(r.coupons) || 0, gifts: Number(r.gifts) || 0 });
-      }
-    };
+    const onVis = () => { if (document.visibilityState === "visible") refreshPageData(); };
+    const onFocus = () => refreshPageData();
     document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
+  // 주문 저장 이벤트 수신 → 즉시 반영
+  useEffect(() => {
+    const onOrders = (e) => {
+      const currentUid = getUid();
+      if (!currentUid) return;
+      if (e?.detail?.uid && e.detail.uid !== currentUid) return;
+      const next = e?.detail?.orders ?? loadOrders(currentUid) ?? [];
+      const sorted = [...next].sort((a, b) => toDate(b.date) - toDate(a.date));
+      setOrders(sorted);
+    };
+    window.addEventListener(ORDERS_UPDATED_EVENT, onOrders);
+    return () => window.removeEventListener(ORDERS_UPDATED_EVENT, onOrders);
+  }, []);
 
+  // 알림
+  const [shake, setShake] = useState(false);
+  const [silenced, setSilenced] = useState(false);
+  const [showNotice, setShowNotice] = useState(false);
 
-  // 모달 데이터
+  useEffect(() => { setSilenced(false); setShowNotice(false); }, [eventData]);
+  useEffect(() => { setShake(!!(eventData?.won && !silenced)); }, [eventData?.won, silenced]);
+  const onBellClick = () => { if (!eventData?.won) return; setSilenced(true); setShake(false); setShowNotice((v) => !v); };
+
+  const handleLogout = async () => { try { await logoutAll?.(); } finally { navigate("/", { replace: true }); } };
+
   const modalData = useMemo(() => {
     if (!eventData?.won) return null;
     const received = eventData.openedAt || new Date().toISOString();
@@ -110,77 +206,41 @@ const MyPage = () => {
       shipping: "배송중",
     };
   }, [eventData]);
+  // 페이지네이션
+  const PER_PAGE = 3;
+  const [page, setPage] = useState(1);
 
-  // 로그아웃
-  const handleLogout = async () => {
-    try {
-      await logoutAll?.();
-    } finally {
-      navigate("/", { replace: true });
-    }
-  };
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil((orders?.length || 0) / PER_PAGE)),
+    [orders]
+  );
 
-  // 🔔 당첨이면 '무한' 흔들기 & 벨 클릭 시 멈춤 + 문구 토글
-  const [shake, setShake] = useState(false);       // 벨 흔들림 여부
-  const [silenced, setSilenced] = useState(false); // 사용자가 벨 눌러서 멈춤 여부
-  const [showNotice, setShowNotice] = useState(false);
+  // 현재 페이지 아이템(최신순 정렬 유지)
+  const pagedOrders = useMemo(() => {
+    const arr = Array.isArray(orders) ? [...orders] : [];
+    arr.sort((a, b) => toDate(b.date) - toDate(a.date));
+    const start = (page - 1) * PER_PAGE;
+    return arr.slice(start, start + PER_PAGE);
+  }, [orders, page]);
 
-  // 라운드(eventData) 바뀌면 초기화
+  // 주문 목록이 바뀌면 페이지 범위 보정
   useEffect(() => {
-    setSilenced(false);
-    setShowNotice(false);   // ← 문구도 같이 초기화
-  }, [eventData]);
+    setPage((p) => Math.min(Math.max(1, p), totalPages));
+  }, [totalPages]);
 
-  // 당첨이면 자동 무한 흔들기, 무음이면 멈춤
-  useEffect(() => {
-    if (eventData?.won && !silenced) setShake(true);
-    else setShake(false);
-  }, [eventData?.won, silenced]);
-
-  // 벨 클릭: 즉시 멈추고 문구 토글
-  const onBellClick = () => {
-    if (!eventData?.won) return;   // 미당첨이면 무시
-    setSilenced(true);             // 자동 흔들림 금지
-    setShake(false);               // 즉시 멈춤
-    setShowNotice(v => !v);        // 문구 토글
-  };
 
 
 
   return (
-
     <>
       <div id="mypage-wrap">
         <div id="mypage-progress">
           <ul>
-            <li className="progress1">
-              <div className="circle">
-                <p>01</p>
-              </div>
-              <p className="progress-nav">SIGNUP</p>
-            </li>
-            <li>
-              <p className="ntt">
-                <i className="fa-solid fa-angle-right" />
-              </p>
-            </li>
-            <li className="progress2">
-              <div className="circle">
-                <p>02</p>
-              </div>
-              <p className="progress-nav">LOGIN</p>
-            </li>
-            <li>
-              <p className="ntt">
-                <i className="fa-solid fa-angle-right" />
-              </p>
-            </li>
-            <li className="progress3">
-              <div className="circle2">
-                <p>03</p>
-              </div>
-              <p className="progress-nav2">MYPAGE</p>
-            </li>
+            <li className="progress1"><div className="circle"><p>01</p></div><p className="progress-nav">SIGNUP</p></li>
+            <li><p className="ntt"><i className="fa-solid fa-angle-right" /></p></li>
+            <li className="progress2"><div className="circle"><p>02</p></div><p className="progress-nav">LOGIN</p></li>
+            <li><p className="ntt"><i className="fa-solid fa-angle-right" /></p></li>
+            <li className="progress3"><div className="circle2"><p>03</p></div><p className="progress-nav2">MYPAGE</p></li>
           </ul>
         </div>
 
@@ -207,19 +267,8 @@ const MyPage = () => {
               <Link to="#none">고객의 소리</Link>
             </nav>
 
-            {/* ✅ 로그아웃 버튼 */}
             <nav className="logout">
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="a_nav-title"
-                style={{
-                  border: "1px solid #5e472f",
-                  cursor: "pointer",
-                  borderRadius: "5px",
-                  padding: "2px",
-                }}
-              >
+              <button type="button" onClick={handleLogout} className="a_nav-title" style={{ border: "1px solid #5e472f", cursor: "pointer", borderRadius: 5, padding: 2 }}>
                 <p>로그아웃하기</p>
               </button>
             </nav>
@@ -229,85 +278,34 @@ const MyPage = () => {
           <section className="a_my-content">
             {/* 프로필 */}
             <div className="a_profile">
-              <div className="a_profile-img">
-                {/* class -> className 수정 */}
-                <i className="fa-solid fa-user" aria-hidden="true"></i>
-              </div>
-
-              <div className="a_nickname">
-                {loggedIn ? (
-                  // 로그인 상태: 링크 없이 이름만 표시
-                  <span>{user?.name || "회원"}</span>
-                ) : (
-                  // 미로그인 상태: 로그인 링크 노출
-                  <Link to="/login">로그인이 필요합니다</Link>
-                )}
-              </div>
-
-
+              <div className="a_profile-img"><i className="fa-solid fa-user" aria-hidden="true"></i></div>
+              <div className="a_nickname">{loggedIn ? <span>{user?.name || "회원"}</span> : <Link to="/login">로그인이 필요합니다</Link>}</div>
               <div className="profile-icons">
-                <div
-                  className={`bell-wrap ${eventData?.won ? 'is-winnable' : 'disabled'}`}
-                  onClick={onBellClick}
-                  role="button"
-                  tabIndex={0}
-                  aria-disabled={!eventData?.won}
-                  aria-live="polite"
-                >
-                  {/* 글자도 당첨된 경우에만 표시 */}
-                  {eventData?.won && showNotice && (
-                    <span className="bell-notice">선물이 도착했습니다!</span>
-                  )}
-                  <HiBell
-                    style={{
-                      fontSize: "33px",
-                      cursor: eventData?.won ? "pointer" : "default"
-                    }}
-                    className={shake ? "bell-shake" : ""}
-                    title={eventData?.won ? "선물 알림 보기" : "알림 없음"}
-                  />
+                <div className={`bell-wrap ${eventData?.won ? "is-winnable" : "disabled"}`} onClick={onBellClick} role="button" tabIndex={0} aria-disabled={!eventData?.won} aria-live="polite">
+                  {eventData?.won && showNotice && <span className="bell-notice">선물이 도착했습니다!</span>}
+                  <HiBell style={{ fontSize: 33, cursor: eventData?.won ? "pointer" : "default" }} className={shake ? "bell-shake" : ""} title={eventData?.won ? "선물 알림 보기" : "알림 없음"} />
                 </div>
-                <FaGear style={{ fontSize: "29px" }} />
+                <FaGear style={{ fontSize: 29 }} />
               </div>
-
-
             </div>
 
             {/* 요약 박스 */}
             <div className="a_myboxs">
-              {/* 적립금 */}
               <div className="mybox">
-                <div className="mybox-title">
-                  <img src="https://00anuyh.github.io/SouvenirImg/coin_icon.svg" alt="coin_icon" />
-                  <span>적립금</span>
-                </div>
+                <div className="mybox-title"><img src="https://00anuyh.github.io/SouvenirImg/coin_icon.svg" alt="coin_icon" /><span>적립금</span></div>
                 <div className="mybox-num">{(rewards.points || 0).toLocaleString()} p</div>
               </div>
 
-              {/* 선물함: rewards.gifts 개수로 표시 & 클릭 가능 */}
-              <div
-                className={`mybox ${rewards.gifts > 0 ? "is-clickable" : "is-disabled"}`}
-                role="button"
-                tabIndex={0}
+              <div className={`mybox ${rewards.gifts > 0 ? "is-clickable" : "is-disabled"}`} role="button" tabIndex={0}
                 onClick={() => rewards.gifts > 0 && setOpen(true)}
-                onKeyDown={(e) =>
-                  (e.key === "Enter" || e.key === " ") && rewards.gifts > 0 && setOpen(true)
-                }
-                title={rewards.gifts > 0 ? "선물 상세 보기" : "받은 선물이 없습니다"}
-              >
-                <div className="mybox-title">
-                  <img src="https://00anuyh.github.io/SouvenirImg/gift_icon.svg" alt="gift_icon" />
-                  <span>선물함</span>
-                </div>
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && rewards.gifts > 0 && setOpen(true)}
+                title={rewards.gifts > 0 ? "선물 상세 보기" : "받은 선물이 없습니다"}>
+                <div className="mybox-title"><img src="https://00anuyh.github.io/SouvenirImg/gift_icon.svg" alt="gift_icon" /><span>선물함</span></div>
                 <div className="mybox-num">{rewards.gifts || 0}</div>
               </div>
 
-              {/* 쿠폰 */}
               <div className="mybox">
-                <div className="mybox-title">
-                  <img src="https://00anuyh.github.io/SouvenirImg/ticket_icon.svg" alt="ticket_icon" />
-                  <span>쿠폰</span>
-                </div>
+                <div className="mybox-title"><img src="https://00anuyh.github.io/SouvenirImg/ticket_icon.svg" alt="ticket_icon" /><span>쿠폰</span></div>
                 <div className="mybox-num">{rewards.coupons || 0}</div>
               </div>
             </div>
@@ -323,35 +321,79 @@ const MyPage = () => {
                   <div>배송상태</div>
                 </div>
 
-                <div className="a_order-box">
-                  <div className="a_date">2025.08.18</div>
-                  <div className="a_item">
-                    <div className="item-img"></div>
-                    <div className="i-title">감성 우아 목각 말 촛농 유약 우드 오브제</div>
-                  </div>
-                  <div className="a_price">95,000원</div>
-                  <div className="a_state">배송완료</div>
-                </div>
+                {pagedOrders.length === 0 && (
+                  <div style={{ padding: "24px 0", textAlign: "center", color: "#666" }}>최근 주문이 없습니다.</div>
+                )}
 
-                <div className="a_order-box">
-                  <div className="a_date">2025.08.18</div>
-                  <div className="a_item">
-                    <div className="item-img"></div>
-                    <div className="i-title">감성 우아 목각 말 촛농 유약 우드 오브제</div>
-                  </div>
-                  <div className="a_price">95,000원</div>
-                  <div className="a_state">배송완료</div>
-                </div>
+                {pagedOrders.map((o) => {
+                  const first = o.items?.[0] || {};
+                  const img = resolveImg(first.image || first.thumb); // ★ thumb도 폴백 + 상대경로 보정
+                  const when = (o.date || "").replaceAll("-", ".");
+                  const total = o.totals?.grandTotal ?? 0;
+
+                  const line1 = first.title || "(상품)";
+                  const extraCount = (o.items?.length || 0) - 1;
+                  const status = o.status || "결제완료";
+
+                  return (
+                    <div className="a_order-box" key={o.orderId}>
+                      <div className="a_date">{when}</div>
+
+                      <div className="a_item">
+                        <div className="item-img">
+                          <img
+                            src={img}
+                            alt="ordered"
+                            onError={(e) => { e.currentTarget.src = "/img/placeholder.png"; }}
+                            style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8 }}
+                          />
+                        </div>
+                        <div className="i-title">
+                          <div className="i-line1">{line1}</div>
+                          {extraCount > 0 && <div className="i-line2">외 {extraCount}개</div>}
+                          <div className="i-orderno">주문번호: {o.orderId}</div>
+                        </div>
+                      </div>
+
+                      <div className="a_price">{fmtWon(total)}</div>
+                      <div className="a_state">{status}</div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                style={{ background: "transparent", border: "none", cursor: page > 1 ? "pointer" : "default", color: page > 1 ? "#333" : "#bbb", fontSize: 18 }}
+                aria-label="이전 페이지"
+                title="이전"
+              >
+                &lt;
+              </button>
+
+              <span style={{ minWidth: 80, textAlign: "center", fontSize: 14 }}>
+                {page} / {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                style={{ background: "transparent", border: "none", cursor: page < totalPages ? "pointer" : "default", color: page < totalPages ? "#333" : "#bbb", fontSize: 18 }}
+                aria-label="다음 페이지"
+                title="다음"
+              >
+                &gt;
+              </button>
             </div>
           </section>
         </main>
 
-        {/* 모달 */}
         <GiftModal open={open} onClose={() => setOpen(false)} data={modalData || {}} />
       </div>
-
-      {/* <div className="floating-ask"><img src="https://00anuyh.github.io/SouvenirImg/askicon.png" width="60" alt="help" /></div> */}
     </>
   );
 };

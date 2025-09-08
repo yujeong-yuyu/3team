@@ -1,12 +1,15 @@
+// src/pages/Payment2.jsx
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { setPurchaseFlag, markRecentPurchase, addPoints } from "../utils/rewards";
 import { getSession } from "../utils/localStorage";
+import { saveOrder, createOrderId } from "../utils/orders"; // 존재하지 않으면 try/catch 폴백
+import { tagPurchased /*, removeMany*/ } from "../utils/cart";
 import "../css/Payment2.css";
 
 const CDN = "https://00anuyh.github.io/SouvenirImg";
 
-/* -------- 숫자/금액 유틸 -------- */
+/* ===== 숫자/금액 유틸 ===== */
 function toNumber(value, fallback = 0) {
   const n = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
   return Number.isFinite(n) ? n : fallback;
@@ -20,13 +23,37 @@ function fmtKRW(value) {
   }).format(n);
 }
 
-/* -------- 로컬스토리지 -------- */
+/* ===== 날짜 유틸 ===== */
+function ymd(ts) {
+  const d = new Date(ts);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function addBusinessDays(ts, days = 3) {
+  // 간단한 3영업일 계산(주말 제외, 공휴일 제외)
+  let d = new Date(ts);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const w = d.getDay(); // 0=일,6=토
+    if (w !== 0 && w !== 6) added++;
+  }
+  return d.getTime();
+}
+
+/* ===== 로컬스토리지에서 카트 읽어오기 ===== */
 function safeParse(json, fallback = null) {
-  try { return JSON.parse(json); } catch { return fallback; }
+  try {
+    return JSON.parse(json);
+  } catch {
+    return fallback;
+  }
 }
 function readCartFromLS() {
   if (typeof localStorage === "undefined") return [];
-  // ✅ cart_v1 도 포함
+  // 프로젝트별 키가 다를 수 있어 흔한 키들을 순차 시도 (+ cart_v1 포함)
   const KEYS = ["cart_v1", "souvenir_cart_v1", "souvenir_cart", "cart"];
   for (const k of KEYS) {
     const raw = localStorage.getItem(k);
@@ -40,23 +67,28 @@ function readCartFromLS() {
   return [];
 }
 
-/* Payment2에서 쓰는 필드명으로 정규화 */
+/* ===== Payment2 정규화 ===== */
 function normalizeForPayment2(x, i = 0) {
   x = x && typeof x === "object" ? x : {};
   return {
-    image: x.thumb ?? x.image ?? x.src ?? `${CDN}/placeholder.png`,
+    image: x.image ?? x.thumb ?? x.src ?? `${CDN}/placeholder.png`,
     brand: x.brand ?? x.seller ?? "",
     title: x.title ?? x.name ?? "-",
     color: x.color ?? x.optionColor ?? x.colorLabel ?? "-",
     size: x.size ?? x.optionSize ?? x.sizeLabel ?? "-",
+    optionLabel: x.optionLabel ?? "",
     qty: toNumber(x.qty ?? x.quantity ?? x.count ?? 1, 1),
     unitPrice: toNumber(x.unitPrice ?? x.price ?? x.basePrice ?? 0, 0),
-    // ✅ Cart 구조의 delivery 필드도 수용
-    deliveryCost: toNumber(x.deliveryCost ?? x.shippingFee ?? x.shipping ?? x.delivery ?? 0, 0),
+    deliveryCost: toNumber(
+      x.deliveryCost ?? x.shippingFee ?? x.shipping ?? x.delivery ?? 0,
+      0
+    ),
     orderNo: x.orderNo ?? x.orderId ?? x.id ?? `ORDER-${Date.now()}-${i + 1}`,
     id: x.id ?? `${(x.title ?? x.name ?? "item")}-${i}`,
     slug: x.slug ?? undefined,
     thumb: x.thumb ?? x.image ?? x.src ?? undefined,
+    // ★ 장바구니 원본 key 추적(결제 후 tagPurchased용)
+    originalKey: x.sourceKey ?? x.key ?? x.originalKey ?? null,
   };
 }
 function buildLineItems(payload) {
@@ -72,10 +104,25 @@ export default function Payment2() {
   const location = useLocation();
   const payload = location.state || {};
 
-  // ✅ 결제 라인아이템 정규화
-  const items = buildLineItems(payload);
+  /* ✅ 주문 ID / 구매시각: 컴포넌트 안에서 한 번만 고정 생성 */
+  const orderIdRef = React.useRef(payload.orderId || (typeof createOrderId === "function" ? createOrderId() : `ORD-${Date.now()}`));
+  const purchasedAtRef = React.useRef(Date.now());
+  const orderId = orderIdRef.current;
+  const purchasedAt = purchasedAtRef.current;
 
-  // 배송 요약
+  /* 아이템/합계 */
+  const items = buildLineItems(payload);
+  const totals = items.reduce(
+    (acc, it) => {
+      acc.product += toNumber(it.qty, 1) * toNumber(it.unitPrice, 0);
+      acc.delivery += toNumber(it.deliveryCost, 0);
+      return acc;
+    },
+    { product: 0, delivery: 0 }
+  );
+  const grandTotal = totals.product + totals.delivery;
+
+  /* 주소/연락처 표시 */
   const receiver = payload.receiver || "";
   const zip = payload.address?.zip || "";
   const address1 = payload.address?.addr1 || "";
@@ -83,29 +130,14 @@ export default function Payment2() {
   const phone = payload.phone || "";
   const request = payload.deliveryNote || "";
 
-  const onOpenLetter = () => navigate("/Event");
+  const onOpenLetter = () => navigate("/Event"); // 라우트에 맞게 /event 라면 수정
   const onKeepShopping = () => navigate(-2);
 
+  /* 세션 */
   const session = getSession();
   const uid = session?.username || session?.userid || null;
 
-  // 합계
-  const totals = items.reduce(
-    (acc, it) => {
-      const qty = toNumber(it.qty, 1);
-      const unit = toNumber(it.unitPrice, 0);
-      const ship = toNumber(it.deliveryCost, 0);
-      acc.product += qty * unit;
-      acc.delivery += ship;
-      return acc;
-    },
-    { product: 0, delivery: 0 }
-  );
-  const grandTotal = totals.product + totals.delivery;
-
-  const orderIdRef = React.useRef(location.state?.orderId || `ORD-${Date.now()}`);
-  const orderId = orderIdRef.current;
-
+  /* ✅ 포인트 적립 (6%, 중복 방지) */
   React.useEffect(() => {
     if (!items.length) return;
     const creditKey = `pointsCredited:${orderId}`;
@@ -117,26 +149,76 @@ export default function Payment2() {
     }
   }, [uid, items, grandTotal, orderId]);
 
+  /* ✅ 구매 플래그(이벤트 토큰) */
   React.useEffect(() => {
     if (!items.length) return;
     const flag = `purchaseMarked:${orderId}`;
-    if (sessionStorage.getItem(flag) !== "1") {
-      markRecentPurchase({ orderId, total: grandTotal });
-      if (uid) setPurchaseFlag(uid);
-      sessionStorage.setItem(flag, "1");
+    if (sessionStorage.getItem(flag) === "1") return;
+    markRecentPurchase({ orderId, total: grandTotal });
+    if (uid) setPurchaseFlag(uid);
+    sessionStorage.setItem(flag, "1");
+  }, [items, orderId, uid, grandTotal]);
+
+  /* ✅ 장바구니 항목에 '구매됨' 태그 (필요 시 카트 비우기는 주석) */
+  React.useEffect(() => {
+    if (!items.length) return;
+    const flag = `cartTagged:${orderId}`;
+    if (sessionStorage.getItem(flag) === "1") return;
+
+    const keys = items.map((it) => it.originalKey).filter(Boolean);
+    if (keys.length > 0) {
+      // 각 항목에 { lastOrderId, purchasedAt } 기록 → MyPage 최근주문 인식
+      tagPurchased(keys, orderId, purchasedAt);
+      // removeMany(keys); // 결제 후 카트를 비우고 싶으면 주석 해제
+    }
+    sessionStorage.setItem(flag, "1");
+  }, [items, orderId, purchasedAt]);
+
+  /* ✅ 주문 이력 저장 (1) utils/orders.saveOrder 사용 */
+  React.useEffect(() => {
+    if (!items.length) return;
+    const flag = `orderSaved:${orderId}`;
+    if (sessionStorage.getItem(flag) === "1") return;
+
+    const paidDateStr = ymd(purchasedAt);
+
+    try {
+      if (typeof saveOrder === "function") {
+        // MyPage 최근주문용 구조
+        saveOrder(uid, {
+          orderId,
+          date: paidDateStr,
+          items: items.map((it) => ({
+            title: it.title || "-",
+            image: it.image,
+            optionLabel: it.optionLabel || "",
+            qty: Number(it.qty || 1),
+            unitPrice: Number(it.unitPrice || 0),
+            deliveryCost: Number(it.deliveryCost || 0),
+            brand: it.brand || "",
+            color: it.color || "-",
+            size: it.size || "-",
+            orderNo: it.orderNo || "-",
+          })),
+          totals: { product: totals.product, delivery: totals.delivery, grandTotal },
+          status: "결제완료",
+        });
+      }
+    } catch {
+      // 무시하고 (2) localStorage 폴백 저장으로 진행
     }
 
-    // 최근 주문 저장 (커뮤니티 연동용)
+    /* ✅ 주문 이력 저장 (2) localStorage 폴백 */
     try {
       const orderPayload = {
         orderId,
-        createdAt: Date.now(),
+        createdAt: purchasedAt,
         lineItems: items.map((it) => ({
           id: it.id,
           name: it.title,
-          unitPrice: it.unitPrice,
-          qty: it.qty,
-          delivery: it.deliveryCost,
+          unitPrice: Number(it.unitPrice || 0),
+          qty: Number(it.qty || 1),
+          delivery: Number(it.deliveryCost || 0),
           thumb: it.image,
           slug: it.slug,
         })),
@@ -148,19 +230,24 @@ export default function Payment2() {
         address: { zip, addr1: address1, addr2: address2 },
         phone,
         deliveryNote: request,
+        paidDate: paidDateStr,
       };
       localStorage.setItem("lastOrder", JSON.stringify(orderPayload));
       const prevOrders = safeParse(localStorage.getItem("orders"), []);
       const nextOrders = Array.isArray(prevOrders) ? [orderPayload, ...prevOrders] : [orderPayload];
       localStorage.setItem("orders", JSON.stringify(nextOrders));
       localStorage.setItem("recentPurchase", JSON.stringify(orderPayload));
-    } catch {}
+    } catch { }
+
+    sessionStorage.setItem(flag, "1");
   }, [
     items,
-    orderId,
-    grandTotal,
     totals.product,
     totals.delivery,
+    grandTotal,
+    orderId,
+    uid,
+    purchasedAt,
     payload?.coupon,
     receiver,
     address1,
@@ -168,18 +255,18 @@ export default function Payment2() {
     zip,
     phone,
     request,
-    uid,
   ]);
 
+  // (선택) 커뮤니티 리뷰 작성 이동에 쓰려면 사용
   const goWriteReview = () => {
     navigate("/Community2", {
       state: {
         lineItems: items.map((it) => ({
           id: it.id,
           name: it.title,
-          unitPrice: it.unitPrice,
-          qty: it.qty,
-          delivery: it.deliveryCost,
+          unitPrice: Number(it.unitPrice || 0),
+          qty: Number(it.qty || 1),
+          delivery: Number(it.deliveryCost || 0),
           thumb: it.image,
           slug: it.slug,
         })),
@@ -187,44 +274,28 @@ export default function Payment2() {
     });
   };
 
+  /* ===== UI ===== */
+  const purchasedDateStr = ymd(purchasedAt);
+  const etaStr = ymd(addBusinessDays(purchasedAt, 3)); // 3영업일 이내
+
   return (
     <div id="cart-wrap">
       {/* 진행바 */}
       <div id="payment-progress">
         <ul>
           <li className="progress1">
-            <div className="circle">
-              <p>01</p>
-            </div>
-            <p className="progress-nav">
-              SHOPPING <br />
-              BAG
-            </p>
+            <div className="circle"><p>01</p></div>
+            <p className="progress-nav">SHOPPING <br /> BAG</p>
           </li>
-          <li>
-            <p className="ntt">
-              <i className="fa-solid fa-angle-right"></i>
-            </p>
-          </li>
+          <li><p className="ntt"><i className="fa-solid fa-angle-right"></i></p></li>
           <li className="progress2">
-            <div className="circle">
-              <p>02</p>
-            </div>
+            <div className="circle"><p>02</p></div>
             <p className="progress-nav2">ORDER</p>
           </li>
-          <li>
-            <p className="ntt">
-              <i className="fa-solid fa-angle-right"></i>
-            </p>
-          </li>
+          <li><p className="ntt"><i className="fa-solid fa-angle-right"></i></p></li>
           <li className="progress3">
-            <div className="circle2">
-              <p>03</p>
-            </div>
-            <p className="progress-nav">
-              ORDER <br />
-              CONFIRMED
-            </p>
+            <div className="circle2"><p>03</p></div>
+            <p className="progress-nav">ORDER <br /> CONFIRMED</p>
           </li>
         </ul>
       </div>
@@ -238,20 +309,12 @@ export default function Payment2() {
         <div className="payment-final-button">
           <ul>
             <li>
-              <button
-                className="payment-final-button1"
-                type="button"
-                onClick={onKeepShopping}
-              >
+              <button className="payment-final-button1" type="button" onClick={onKeepShopping}>
                 <p>쇼핑계속하기</p>
               </button>
             </li>
             <li>
-              <button
-                className="payment-final-button2"
-                type="button"
-                onClick={onOpenLetter}
-              >
+              <button className="payment-final-button2" type="button" onClick={onOpenLetter}>
                 <img src={`${CDN}/letter.png`} alt="letter" />
                 <p>편지도착</p>
               </button>
@@ -261,21 +324,13 @@ export default function Payment2() {
       </div>
 
       {/* 주문상품 정보 */}
-      <div id="cart-title">
-        <p>주문상품 정보</p>
-      </div>
+      <div id="cart-title"><p>주문상품 정보</p></div>
 
       <div id="cart-item">
         <ul>
-          <li>
-            <p>상품정보</p>
-          </li>
-          <li>
-            <p>배송비</p>
-          </li>
-          <li>
-            <p>진행상태</p>
-          </li>
+          <li><p>상품정보</p></li>
+          <li><p>배송비</p></li>
+          <li><p>진행상태</p></li>
         </ul>
       </div>
 
@@ -284,7 +339,7 @@ export default function Payment2() {
           <div className="cartitem" key={it.id ?? `${it.title}-${idx}`}>
             <div className="cartitem-img">
               <img
-                src={it.image || `${CDN}/placeholder.png`}
+                src={it.image || it.thumb || `${CDN}/placeholder.png`}
                 alt={`cart-${it.orderNo}`}
                 style={{ width: "200px", height: "200px" }}
               />
@@ -302,20 +357,14 @@ export default function Payment2() {
             </div>
 
             <div className="payment2-delivery-price">
-              <p>
-                {toNumber(it.deliveryCost, 0) > 0
-                  ? fmtKRW(it.deliveryCost)
-                  : "무료배송"}
-              </p>
+              <p>{toNumber(it.deliveryCost, 0) > 0 ? fmtKRW(it.deliveryCost) : "무료배송"}</p>
             </div>
 
             <div className="payment2-order-status">
               <p>결제완료</p>
-              <p>{new Date().toISOString().slice(0, 10)}</p>
-              <p>
-                배송예정 <i className="fa-solid fa-truck-fast"></i>
-              </p>
-              <p>3영업일 이내 배송 시작</p>
+              <p>{purchasedDateStr}</p>
+              <p>배송예정 <i className="fa-solid fa-truck-fast"></i></p>
+              <p>{ymd(addBusinessDays(purchasedAt, 3))} 이내 배송 시작</p>
             </div>
           </div>
         ))}
@@ -334,48 +383,33 @@ export default function Payment2() {
       <div id="cart-footer2">
         <div id="cart-total">
           <div className="cart-total-title">
-            <ul>
-              <li>
-                <p>배송정보</p>
-              </li>
-            </ul>
+            <ul><li><p>배송정보</p></li></ul>
           </div>
           <div className="cart-total-payment4">
             <ul>
-              <li>
-                <p>수령인</p>
-              </li>
-              <li>
-                <p>배송지</p>
-              </li>
-              <li>
-                <p>연락처</p>
-              </li>
-              <li>
-                <p>배송시 요청사항</p>
-              </li>
+              <li><p>수령인</p></li>
+              <li><p>배송지</p></li>
+              <li><p>연락처</p></li>
+              <li><p>배송시 요청사항</p></li>
             </ul>
           </div>
           <div className="cart-total-personal">
             <ul>
-              <li>
-                <p>{receiver}</p>
-              </li>
+              <li><p>{receiver}</p></li>
               <li>
                 <p>{zip}</p>
                 <p>{address1}</p>
                 <p>{address2}</p>
               </li>
-              <li>
-                <p>{phone}</p>
-              </li>
-              <li>
-                <p>{request}</p>
-              </li>
+              <li><p>{phone}</p></li>
+              <li><p>{request}</p></li>
             </ul>
           </div>
         </div>
       </div>
+
+      {/* (선택) 리뷰 버튼이 필요하면 어디든 배치 */}
+      {/* <button onClick={goWriteReview}>리뷰 쓰러 가기</button> */}
     </div>
   );
 }

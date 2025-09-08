@@ -11,7 +11,12 @@
       "orderNo": "8975648",
       "image": "https://00anuyh.github.io/SouvenirImg/cartitem1.png",
       "deliveryCost": 0,
-      "status": ["결제완료", "2025-08-11", "배송준비중", "2025-08-12(화) 이내 배송 시작"]
+      "status": [
+        "결제완료",
+        "2025-08-11",
+        "배송준비중",
+        "2025-08-12(화) 이내 배송 시작"
+      ]
     },
     {
       "id": 2,
@@ -24,7 +29,12 @@
       "orderNo": "8975648",
       "image": "https://00anuyh.github.io/SouvenirImg/cartitem2.png",
       "deliveryCost": 0,
-      "status": ["결제완료", "2025-08-11", "배송준비중", "2025-08-12(화) 이내 배송 시작"]
+      "status": [
+        "결제완료",
+        "2025-08-11",
+        "배송준비중",
+        "2025-08-12(화) 이내 배송 시작"
+      ]
     }
   ],
   "receiver": "전유정",

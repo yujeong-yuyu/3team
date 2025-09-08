@@ -1,4 +1,3 @@
-// src/routes/Detail.js
 import React, {
   useEffect,
   useLayoutEffect,
@@ -28,6 +27,15 @@ import { addToCart } from "../utils/cart";
 // 🎁 보상 포인트/쿠폰
 import { getRewards, LS_REWARDS } from "../utils/rewards";
 import { SESSION_KEY } from "../utils/localStorage";
+
+// 📝 로컬 리뷰 유틸 (수정/삭제 포함)
+import {
+  getReviewsFor,
+  addReviewFor,
+  updateReviewFor,
+  deleteReviewFor,
+  getAuthorId,
+} from "../utils/reviews";
 
 export default function Detail() {
   // ---------- Auth ----------
@@ -66,7 +74,7 @@ export default function Detail() {
     thumb: "",
   });
 
-  // ⭐ 별점 상태
+  // ⭐ 별점 상태(작성 폼)
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
 
@@ -77,6 +85,17 @@ export default function Detail() {
   const [uid, setUid] = useState(null);
   const [couponCount, setCouponCount] = useState(0);
   const [points, setPoints] = useState(0);
+
+  // ✅ 삭제 확인 모달 상태
+  const [confirmState, setConfirmState] = useState({
+    open: false,
+    message: "",
+    onConfirm: null,
+  });
+  // 호출 헬퍼
+  const askConfirm = useCallback((message, onYes) => {
+    setConfirmState({ open: true, message, onConfirm: onYes });
+  }, []);
 
   // ---------- Router ----------
   const { slug, id } = useParams();
@@ -151,18 +170,6 @@ export default function Detail() {
     [targets]
   );
 
-  const openReviewModal = useCallback((itemEl) => {
-    if (!itemEl) return;
-    const name = itemEl.querySelector(".rv-name")?.textContent?.trim() || "";
-    const stars = itemEl.querySelector(".rv-stars-static")?.textContent?.trim() || "";
-    const score = itemEl.querySelector(".rv-score")?.textContent?.trim() || "";
-    const thumb = itemEl.querySelector(".rv-thumb")?.getAttribute("src") || "";
-    const copy = itemEl.querySelector(".rv-excerpt")?.cloneNode(true);
-    copy?.querySelector(".rv-more")?.remove();
-    const text = copy?.textContent?.trim() || "";
-    setReviewModal({ open: true, name, stars, score, text, thumb });
-  }, []);
-
   // 구매바/푸터 보정
   const recalcBuybar = useCallback(() => {
     const buy = buybarRef.current;
@@ -208,13 +215,15 @@ export default function Detail() {
     return () => ro.disconnect();
   }, [recalcBuybar]);
 
-  // ESC로 닫기(사이드/리뷰/장바구니모달)
+  // ESC로 닫기(사이드/리뷰/장바구니모달/수정모달/확인모달)
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") {
         setNavOpen(false);
         setReviewModal((prev) => ({ ...prev, open: false }));
         setShowModal(false);
+        setEditState((s) => ({ ...s, open: false }));
+        setConfirmState((s) => ({ ...s, open: false, onConfirm: null })); // ← 추가
       }
     };
     document.addEventListener("keydown", onKey);
@@ -340,24 +349,28 @@ export default function Detail() {
     setShowModal(true);
   }, [active?.id, active?.slug, basePrice, gallery, key, product?.id, product?.name, product?.slug, qty]);
 
-  // ✅ BUY NOW → Payment로 Payment가 기대하는 스키마(state.lineItems)로 전달
+  // ✅ BUY NOW → Payment로 이동
   const handleBuyNow = useCallback(() => {
     const lineItem = {
+      id: active?.id ?? product?.id ?? product?.slug ?? String(key ?? ""),
+      slug: active?.slug ?? product?.slug ?? String(key ?? ""),
       name: product?.name ?? "",
-      unitPrice: basePrice,  // Payment.normItem에서 사용
-      qty,                   // 수량
-      delivery: 0,           // 필요시 조정
-      // 필요하면 추가 정보 확장 가능(id/slug/thumb 등) — Payment는 모르는 필드는 무시
+      unitPrice: basePrice,
+      qty,
+      delivery: 0,
+      thumb: gallery?.[0] ?? product?.image ?? "",
+      brand: product?.brand ?? "",
+      optionLabel: "기본 구성",
     };
 
     navigate("/payment", {
       state: {
-        lineItems: [lineItem], // ✅ Payment가 읽는 키
-        coupon: 0,             // 쿠폰이 있다면 숫자 또는 { amount }
+        lineItems: [lineItem],
+        coupon: 0,
         from: "detail",
       },
     });
-  }, [basePrice, navigate, product?.name, qty]);
+  }, [basePrice, navigate, product?.name, qty, active?.id, active?.slug, product?.id, product?.slug, key, gallery]);
 
   // ---------- active 없을 때: 알럿 + 이동 ----------
   useEffect(() => {
@@ -367,6 +380,210 @@ export default function Detail() {
       navigate(-1);
     }
   }, [active, navigate]);
+
+  // ================================
+  //         리뷰 작성/표시/수정/삭제
+  // ================================
+  // 현재 작성자 식별자(로그인 uid 있으면 uid, 없으면 디바이스ID)
+  const authorId = useMemo(() => uid || getAuthorId(), [uid]);
+
+  // 작성 폼
+  const [rvText, setRvText] = useState("");
+  const [rvPhoto, setRvPhoto] = useState(""); // dataURL
+  // 정렬/필터 상태
+  const [rvSort, setRvSort] = useState("new"); // 'new' | 'high' | 'low'
+  const [rvOnlyPhoto, setRvOnlyPhoto] = useState(false);
+  // 사용자 저장 리뷰
+  const [userReviews, setUserReviews] = useState([]);
+
+  // 이 상품의 key
+  const productKey = useMemo(
+    () => String(product?.slug || product?.id || key || ""),
+    [product?.slug, product?.id, key]
+  );
+
+  // 로딩
+  useEffect(() => {
+    setUserReviews(getReviewsFor(productKey));
+  }, [productKey]);
+
+  // 파일 -> dataURL (작성 폼)
+  const onPickPhoto = useCallback((e) => {
+    const f = e.target.files?.[0];
+    if (!f) return setRvPhoto("");
+    const reader = new FileReader();
+    reader.onload = () => setRvPhoto(String(reader.result || ""));
+    reader.readAsDataURL(f);
+  }, []);
+
+  // 리뷰 모달 열기(읽기)
+  const openReviewModalFromData = useCallback((rv) => {
+    setReviewModal({
+      open: true,
+      name: rv.name,
+      stars: rv.stars,
+      score: rv.score,
+      text: rv.excerpt,
+      thumb: rv.thumb || "",
+    });
+  }, []);
+
+  // 작성 제출
+  const submitReview = useCallback(() => {
+    if (!rating) {
+      alert("별점을 선택해주세요.");
+      return;
+    }
+    if ((rvText || "").trim().length < 10) {
+      alert("후기는 최소 10자 이상 작성해주세요.");
+      return;
+    }
+    const starsStr = "★★★★★".slice(0, rating) + "☆☆☆☆☆".slice(0, 5 - rating);
+    const review = {
+      name: isLoggedIn?.local ? `${user?.name}님` : "회원님",
+      stars: starsStr,
+      score: `${rating}.0`,
+      excerpt: rvText.trim(),
+      thumb: rvPhoto, // 없으면 ""
+      rating,
+      createdAt: new Date().toISOString(),
+      authorId, // ← 작성자 식별 저장
+    };
+    const next = addReviewFor(productKey, review);
+    setUserReviews(next);
+
+    // ✅ 방금 작성한 리뷰가 바로 맨 위에 보이도록 최신순으로 전환
+    setRvSort("new");
+    setRvOnlyPhoto(false);
+
+    // 폼 초기화
+    setRvText("");
+    setRvPhoto("");
+    setRating(0);
+    setHover(0);
+
+    alert("리뷰가 등록되었습니다.");
+  }, [isLoggedIn?.local, productKey, rating, rvPhoto, rvText, user?.name, authorId]);
+
+  // 표시용(내장 + 사용자) + 정렬/필터
+  const displayReviews = useMemo(() => {
+    const builtin = (active.reviews || []).map((rv, idx) => {
+      const numeric =
+        Number(rv.score) ||
+        (typeof rv.stars === "string" ? rv.stars.replace(/[^★]/g, "").length : 0);
+      return {
+        name: rv.name,
+        stars: rv.stars,
+        score: rv.score,
+        excerpt: rv.excerpt,
+        thumb: img(rv.thumb),
+        rating: numeric,
+        createdAt: 0,
+        _kind: "builtin",
+        _idx: idx,
+      };
+    });
+
+    const users = (userReviews || []).map((rv) => ({
+      ...rv,
+      createdAt: rv.createdAt ? new Date(rv.createdAt).getTime() : 1,
+      _kind: "user",
+    }));
+
+    let all = [...users, ...builtin];
+
+    if (rvOnlyPhoto) {
+      all = all.filter((x) => !!x.thumb);
+    }
+
+    if (rvSort === "high") {
+      all.sort((a, b) => (b.rating - a.rating) || (b.createdAt - a.createdAt));
+    } else if (rvSort === "low") {
+      all.sort((a, b) => (a.rating - b.rating) || (b.createdAt - a.createdAt));
+    } else {
+      all.sort((a, b) => (b.createdAt - a.createdAt) || (b.rating - a.rating));
+    }
+
+    return all;
+  }, [active.reviews, img, rvOnlyPhoto, rvSort, userReviews]);
+
+  // ====== 수정/삭제 ======
+  const [editState, setEditState] = useState({
+    open: false,
+    id: null,
+    rating: 0,
+    text: "",
+    thumb: "",
+  });
+
+  const onPickEditPhoto = useCallback((e) => {
+    const f = e.target.files?.[0];
+    if (!f) return; // 기존 유지
+    const reader = new FileReader();
+    reader.onload = () => setEditState((s) => ({ ...s, thumb: String(reader.result || "") }));
+    reader.readAsDataURL(f);
+  }, []);
+
+  const startEdit = useCallback((rv) => {
+    // 본인만
+    if (rv._kind !== "user" || rv.authorId !== authorId) {
+      alert("내가 작성한 리뷰만 수정할 수 있어요.");
+      return;
+    }
+    setEditState({
+      open: true,
+      id: rv.id,
+      rating: rv.rating || 0,
+      text: rv.excerpt || "",
+      thumb: rv.thumb || "",
+    });
+  }, [authorId]);
+
+  const saveEdit = useCallback(() => {
+    const { id, rating: r, text, thumb } = editState;
+    if (!id) return;
+    if (!r) {
+      alert("별점을 선택해주세요.");
+      return;
+    }
+    if ((text || "").trim().length < 10) {
+      alert("후기는 최소 10자 이상 작성해주세요.");
+      return;
+    }
+    const starsStr = "★★★★★".slice(0, r) + "☆☆☆☆☆".slice(0, 5 - r);
+    const next = updateReviewFor(
+      productKey,
+      id,
+      {
+        rating: r,
+        excerpt: text.trim(),
+        thumb,
+        stars: starsStr,
+        score: `${r}.0`,
+      },
+      authorId
+    );
+    setUserReviews(next);
+    setEditState({ open: false, id: null, rating: 0, text: "", thumb: "" });
+    alert("리뷰가 수정되었습니다.");
+  }, [editState, productKey, authorId]);
+
+  const removeReview = useCallback(
+    (rv) => {
+      if (rv._kind !== "user" || rv.authorId !== authorId) {
+        alert("내가 작성한 리뷰만 삭제할 수 있어요.");
+        return;
+      }
+
+      // window.confirm 대신 커스텀 확인 모달
+      askConfirm("정말 삭제할까요?", () => {
+        const next = deleteReviewFor(productKey, rv.id, authorId);
+        setUserReviews(next);
+        setConfirmState((s) => ({ ...s, open: false, onConfirm: null }));
+      });
+    },
+    [productKey, authorId, askConfirm]
+  );
 
   if (!active) return null;
 
@@ -566,7 +783,14 @@ export default function Detail() {
             <div className="detail-inpo detail-review" id="review" ref={reviewRef}>
               <h3 className="detail-info-title">리뷰</h3>
 
-              <form className="rv-form" onSubmit={(e) => e.preventDefault()}>
+              {/* 리뷰 작성 폼 */}
+              <form
+                className="rv-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submitReview();
+                }}
+              >
                 <div className="rv-top">
                   <div className="rv-avatar lg" aria-hidden="true" />
                   <div className="rv-meta">
@@ -606,62 +830,125 @@ export default function Detail() {
                   </div>
 
                   <label className="rv-photo-btn">
-                    <input type="file" accept="image/*" hidden />
+                    <input type="file" accept="image/*" hidden onChange={onPickPhoto} />
                     <span>사진첨부하기</span>
                   </label>
                 </div>
 
-                <textarea className="rv-text" placeholder="솔직한 후기를 작성해주세요. (최소 10자)" />
+                {/* 선택 시 간단 미리보기 */}
+                {rvPhoto && (
+                  <div className="rv-preview">
+                    <img src={rvPhoto} alt="첨부 미리보기" style={{ maxWidth: 140, borderRadius: 8 }} />
+                  </div>
+                )}
+
+                <textarea
+                  className="rv-text"
+                  placeholder="솔직한 후기를 작성해주세요. (최소 10자)"
+                  value={rvText}
+                  onChange={(e) => setRvText(e.target.value)}
+                  minLength={10}
+                  required
+                />
                 <button className="rv-submit" type="submit">
                   등록하기
                 </button>
               </form>
 
+              {/* 필터/정렬 */}
               <div className="rv-filter">
-                <button className="detail-on" type="button">
+                <button
+                  className={rvSort === "new" && !rvOnlyPhoto ? "detail-on" : ""}
+                  type="button"
+                  onClick={() => {
+                    setRvSort("new");
+                    setRvOnlyPhoto(false);
+                  }}
+                >
                   최신순
                 </button>
-                <button type="button">평점 높은순</button>
-                <button type="button">평점 낮은순</button>
-                <button type="button">사진 리뷰만 보기</button>
+                <button
+                  className={rvSort === "high" && !rvOnlyPhoto ? "detail-on" : ""}
+                  type="button"
+                  onClick={() => {
+                    setRvSort("high");
+                    setRvOnlyPhoto(false);
+                  }}
+                >
+                  평점 높은순
+                </button>
+                <button
+                  className={rvSort === "low" && !rvOnlyPhoto ? "detail-on" : ""}
+                  type="button"
+                  onClick={() => {
+                    setRvSort("low");
+                    setRvOnlyPhoto(false);
+                  }}
+                >
+                  평점 낮은순
+                </button>
+                <button
+                  className={rvOnlyPhoto ? "detail-on" : ""}
+                  type="button"
+                  onClick={() => setRvOnlyPhoto((v) => !v)}
+                >
+                  사진 리뷰만 보기
+                </button>
               </div>
 
+              {/* 리뷰 리스트 */}
               <ul className="rv-list">
-                {(active.reviews || []).map((rv, idx) => (
-                  <li className="rv-item" key={`rv-${idx}`}>
-                    <div className="rv-head">
-                      <div className="rv-avatar" aria-hidden="true" />
-                      <div>
-                        <p className="rv-name">{rv.name}</p>
-                        <p className="rv-starline">
-                          <span className="rv-stars-static">{rv.stars}</span>
-                          <span className="rv-score">{rv.score}</span>
+                {displayReviews.map((rv, idx) => {
+                  const isOwner = rv._kind === "user" && rv.authorId === authorId;
+                  return (
+                    <li className="rv-item" key={rv.id || `${rv._kind}-${rv._idx || idx}`}>
+                      <div className="rv-head">
+                        <div className="rv-avatar" aria-hidden="true" />
+                        <div>
+                          <p className="rv-name">{rv.name}</p>
+                          <p className="rv-starline">
+                            <span className="rv-stars-static">{rv.stars}</span>
+                            <span className="rv-score">{rv.score}</span>
+                          </p>
+                        </div>
+                        {/* 본인 리뷰만 수정/삭제 */}
+                        {isOwner && (
+                          <div className="rv-actions" style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                            <button type="button" className="rv-edit-btn" onClick={() => startEdit(rv)}>
+                              수정
+                            </button>
+                            <button type="button" className="rv-del-btn" onClick={() => removeReview(rv)}>
+                              삭제
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="rv-body">
+                        {rv.thumb ? (
+                          <img
+                            className="rv-thumb"
+                            src={rv.thumb}
+                            alt="리뷰 사진"
+                            onClick={() => openReviewModalFromData(rv)}
+                          />
+                        ) : null}
+                        <p className="rv-excerpt">
+                          {rv.excerpt}
+                          <a
+                            href="#none"
+                            className="rv-more"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              openReviewModalFromData(rv);
+                            }}
+                          >
+                            [더보기]
+                          </a>
                         </p>
                       </div>
-                    </div>
-                    <div className="rv-body">
-                      <img
-                        className="rv-thumb"
-                        src={img(rv.thumb)}
-                        alt="리뷰 사진"
-                        onClick={(e) => openReviewModal(e.currentTarget.closest(".rv-item"))}
-                      />
-                      <p className="rv-excerpt">
-                        {rv.excerpt}
-                        <a
-                          href="#none"
-                          className="rv-more"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            openReviewModal(e.currentTarget.closest(".rv-item"));
-                          }}
-                        >
-                          [더보기]
-                        </a>
-                      </p>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </section>
@@ -750,7 +1037,7 @@ export default function Detail() {
         </div>
       </main>
 
-      {/* 리뷰 모달 */}
+      {/* 리뷰 읽기 모달 */}
       <aside
         id="rv-modal"
         role="dialog"
@@ -783,6 +1070,136 @@ export default function Detail() {
           <p className="rvm-text">{reviewModal.text}</p>
         </div>
       </aside>
+
+      {/* 리뷰 수정 모달 (본인 리뷰만) */}
+      <aside
+        id="rv-edit-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rve-title"
+        style={{ display: editState.open ? "block" : "none" }}
+      >
+        <button
+          type="button"
+          className="rvm-close"
+          aria-label="닫기"
+          onClick={() => setEditState((s) => ({ ...s, open: false }))}
+        >
+          ×
+        </button>
+        <div className="rvm-head">
+          <div className="rvm-avatar" aria-hidden="true" />
+          <div className="rvm-meta">
+            <h4 id="rve-title" className="rvm-name">리뷰 수정</h4>
+          </div>
+        </div>
+
+        {/* 별점 편집 */}
+        <div className="rv-stars" role="radiogroup" aria-label="별점 수정" style={{ margin: "10px 0" }}>
+          {[1, 2, 3, 4, 5].map((v) => {
+            const filled = (editState.rating || 0) >= v;
+            return (
+              <button
+                type="button"
+                key={`edit-star-${v}`}
+                className={`star ${filled ? "on" : ""}`}
+                role="radio"
+                aria-checked={editState.rating === v}
+                aria-label={`${v}점`}
+                onClick={() => setEditState((s) => ({ ...s, rating: v }))}
+              >
+                {filled ? "★" : "☆"}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 사진 교체 */}
+        <div className="rv-preview" style={{ marginBottom: 8 }}>
+          {editState.thumb && (
+            <img src={editState.thumb} alt="첨부 미리보기" style={{ maxWidth: 140, borderRadius: 8 }} />
+          )}
+        </div>
+        <label className="rv-photo-btn" style={{ display: "inline-block", marginBottom: 8 }}>
+          <input type="file" accept="image/*" hidden onChange={onPickEditPhoto} />
+          <span>사진 바꾸기</span>
+        </label>
+
+        {/* 텍스트 수정 */}
+        <textarea
+          className="rv-text"
+          placeholder="후기를 수정하세요. (최소 10자)"
+          value={editState.text}
+          onChange={(e) => setEditState((s) => ({ ...s, text: e.target.value }))}
+          minLength={10}
+          required
+        />
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button className="rv-submit" type="button" onClick={saveEdit}>
+            저장
+          </button>
+          <button
+            className="rv-submit"
+            type="button"
+            onClick={() => setEditState((s) => ({ ...s, open: false }))}
+          >
+            취소
+          </button>
+        </div>
+      </aside>
+
+      {/* 확인 모달 */}
+      {confirmState.open && (
+        <aside
+          id="confirm-modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setConfirmState((s) => ({ ...s, open: false, onConfirm: null }))}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+        >
+          <div
+            className="confirm-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(90vw, 360px)",
+              background: "#fff",
+              borderRadius: 12,
+              padding: "20px 18px",
+              boxShadow: "0 10px 30px rgba(0,0,0,.15)",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6 }}>
+              {confirmState.message || "확인하시겠어요?"}
+            </p>
+            <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setConfirmState((s) => ({ ...s, open: false, onConfirm: null }))}
+                style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ddd", background: "#fafafa" }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => confirmState.onConfirm?.()}
+                style={{ padding: "8px 12px", borderRadius: 8 }}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
 
       {/* 사이드메뉴 배경 */}
       {navOpen && <div className="nav-backdrop" aria-hidden="true" onClick={() => setNavOpen(false)} />}

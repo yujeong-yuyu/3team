@@ -7,11 +7,10 @@ export default function Payment() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Cart/Detail 등 어떤 경로든 안전하게 받기
-  const rawLineItems =
-    location.state?.lineItems ||
-    location.state?.items ||
-    []; // 원본 아이템 배열
+  // ---- 원본 아이템 안전 수령: lineItems | items | 단일 객체도 배열화 ----
+  const incoming =
+    location.state?.lineItems ?? location.state?.items ?? [];
+  const rawLineItems = Array.isArray(incoming) ? incoming : [incoming];
 
   /* ---------------------- helpers ---------------------- */
   const toInt = (v, fallback = 0) => {
@@ -26,14 +25,25 @@ export default function Payment() {
       maximumFractionDigits: 0,
     }).format(toInt(v, 0));
 
-  // 어떤 키가 와도 표준형으로 정규화
+  // ✅ 어떤 키가 와도 표준형으로 정규화(표시/정산 + 메타 유지)
   const normItem = (it = {}) => ({
+    // 표시/정산 필드
     name: it.name ?? it.title ?? "상품",
     unitPrice: toInt(it.unitPrice ?? it.price ?? it.amount ?? 0),
     qty: Math.max(1, toInt(it.qty ?? it.quantity ?? 1, 1)),
     delivery: toInt(
       it.delivery ?? it.deliveryCost ?? it.shipping ?? it.shippingFee ?? 0
     ),
+
+    // 메타 필드(다음 단계/마이페이지 연동용)
+    sourceKey: it.key ?? it.sourceKey ?? it.originalKey ?? null,
+    image: it.thumb ?? it.image ?? it.src ?? null,
+    brand: it.brand ?? "",
+    optionLabel: it.optionLabel ?? it.optionName ?? "",
+    color: it.color ?? it.optionColor ?? null,
+    size: it.size ?? it.optionSize ?? null,
+    orderNo: it.orderNo ?? it.orderId ?? it.id ?? null,
+    id: it.id ?? it.slug ?? null,
   });
 
   /* ---------------------- 금액/표시값 계산 ---------------------- */
@@ -61,11 +71,22 @@ export default function Payment() {
 
     const total = Math.max(0, subtotal + shipFee - couponAmt);
 
-    // "상품명 (외 N개)"
+    // "상품명 (외 N개)" 표기
     const firstName = items[0]?.name ?? "";
 
-    // 1) 서로 다른 상품 개수 기준
-    const distinctExtra = Math.max(0, items.length - 1);
+    // 1) 서로 다른 상품 개수(고유 키 기준) 우선
+    const keyOf = (x) =>
+      (x.id ?? "") +
+      "|" +
+      (x.name ?? "") +
+      "|" +
+      (x.optionLabel ?? "") +
+      "|" +
+      (x.color ?? "") +
+      "|" +
+      (x.size ?? "");
+    const distinctCount = new Set(items.map(keyOf)).size;
+    const distinctExtra = Math.max(0, distinctCount - 1);
 
     // 2) 백업: 총 수량 기준 (총 수량 - 첫 상품 수량)
     const totalQty = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
@@ -122,7 +143,8 @@ export default function Payment() {
       phone: `${phone1}-${phone2}-${phone3}`,
       deliveryNote,
       payMethod,
-      lineItems: rawLineItems, // 정규화된 아이템 전달
+      // ✅ 정규화된 아이템을 그대로 전달(다음 단계에서 바로 사용 가능)
+      lineItems: items,
       subtotal,
       shipFee,
       coupon: couponAmt,

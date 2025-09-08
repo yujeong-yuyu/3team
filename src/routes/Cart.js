@@ -5,22 +5,22 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   getCart,
   setQty,
-  setCart,              // ✅ utils/cart에서 전체 교체 저장
+  setCart,                 // 전체 교체 저장 (이벤트 디스패치 포함)
   addToCart as addToCartUtil,
   CART_UPDATED_EVENT,
 } from "../utils/cart";
 
 const fmt = (n) => (Number(n) || 0).toLocaleString("ko-KR") + "원";
 
-/** utils/cart의 병합키 규칙에 최대한 맞춰 키가 없으면 보완 */
+/** utils/cart의 병합 키 규칙과 최대한 맞춰, 저장된 key가 없을 때 보완 */
 function mergeKeyLikeUtils(x = {}) {
   const base = x.id ? String(x.id) : String(x.slug ?? x.name ?? "");
-  const opt  = x.optionId ?? "base";
-  const pic  = x.thumb ?? x.image ?? "";
+  const opt = x.optionId ?? "base";
+  const pic = x.thumb ?? x.image ?? "";
   return `${base}::${opt}::${pic}`;
 }
 
-// 로컬스토리지(cart_v1) → 화면용으로 정규화
+/** 로컬스토리지(cart_v1) → 화면용 정규화 */
 function normalizeFromStorage(list) {
   return (list || []).map((it) => {
     const safeKey =
@@ -34,8 +34,8 @@ function normalizeFromStorage(list) {
       name: it.name ?? "",
       brand: it.brand ?? "",
       thumb: it.thumb ?? it.image ?? "",
-      optionLabel: it.optionLabel ?? "",
-      price: Number(it.price ?? it.basePrice ?? 0),
+      optionLabel: it.optionLabel ?? "",          // 예: "레이스 리본 포함(+₩3,000)"
+      price: Number(it.price ?? it.basePrice ?? 0), // 단가(옵션 반영)
       delivery: Number(it.delivery ?? 0),
       qty: Math.max(1, Number(it.qty ?? 1)),
       checked: true,
@@ -48,18 +48,18 @@ export default function Cart() {
   const navigate = useNavigate();
   const { state } = useLocation();
 
-  // 최초 로드
+  /* 최초 로드 */
   const loadInitial = useCallback(() => normalizeFromStorage(getCart()), []);
   const [items, setItems] = useState(loadInitial);
 
-  // 다른 페이지에서 cart가 갱신되면 자동 동기화
+  /* 다른 페이지에서 addToCart되면 자동 동기화 */
   useEffect(() => {
     const onUpd = () => setItems(normalizeFromStorage(getCart()));
     window.addEventListener(CART_UPDATED_EVENT, onUpd);
     return () => window.removeEventListener(CART_UPDATED_EVENT, onUpd);
   }, []);
 
-  /** ✅ 전역 저장(동일 스토리지 키) */
+  /* 전역 저장(동일 스토리지 키) */
   const persist = useCallback((rows) => {
     const raw = rows.map((r) => ({
       key: r.key,
@@ -73,21 +73,22 @@ export default function Cart() {
       qty: r.qty,
       orderNo: r.orderNo,
     }));
-    setCart(raw); // utils/cart가 이벤트도 dispatch
+    setCart(raw); // utils/cart가 저장 + 이벤트 디스패치
     setItems(normalizeFromStorage(raw));
   }, []);
 
-  /** ✅ 다른 페이지에서 navigate('/cart', { state: { add } })로 받은 아이템 처리
-   *    여기서 합치지 않고 utils/cart.addToCart로 위임 (id+optionId+thumb 기준)
+  /** 다른 페이지에서 navigate('/cart', { state: { add } }) 로 받은 아이템 처리
+   *  병합은 utils/cart.addToCart 로 위임 (id+optionId(+thumb) 규칙)
    */
   useEffect(() => {
     if (state?.add) {
-      addToCartUtil(state.add, Math.max(1, Number(state.add.qty ?? 1)));
+      const qty = Math.max(1, Number(state.add.qty ?? 1));
+      addToCartUtil(state.add, qty);
       navigate(".", { replace: true, state: null });
     }
   }, [state, navigate]);
 
-  // 선택 토글
+  /* 선택 토글 */
   const allChecked = items.length > 0 && items.every((it) => it.checked);
   const toggleAll = () =>
     setItems((prev) => prev.map((it) => ({ ...it, checked: !allChecked })));
@@ -97,11 +98,11 @@ export default function Cart() {
       prev.map((it) => (it.key === key ? { ...it, checked: !it.checked } : it))
     );
 
-  // 수량 +/-
+  /* 수량 +/- */
   const plus = (key) => {
     const it = items.find((x) => x.key === key);
     const nextQty = (it?.qty || 1) + 1;
-    setQty(key, nextQty);
+    setQty(key, nextQty); // utils/cart 통해 스토리지 갱신
     setItems((prev) => prev.map((x) => (x.key === key ? { ...x, qty: nextQty } : x)));
   };
 
@@ -112,13 +113,13 @@ export default function Cart() {
     setItems((prev) => prev.map((x) => (x.key === key ? { ...x, qty: nextQty } : x)));
   };
 
-  // 선택 삭제
+  /* 선택 삭제 */
   const removeSelected = () => {
     const remain = items.filter((it) => !it.checked);
     persist(remain);
   };
 
-  // 합계
+  /* 합계 */
   const { subtotal, delivery, total, count } = useMemo(() => {
     const selected = items.filter((it) => it.checked);
     const subtotal = selected.reduce((s, it) => s + it.price * it.qty, 0);

@@ -3,6 +3,9 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
+import { grantSignupBonusOnce } from "../utils/rewards";
+import { setSession } from "../utils/localStorage";
+
 /* 외부 SDK 로더(중복 로드 방지) */
 function loadScript(src, id) {
   return new Promise((resolve, reject) => {
@@ -15,6 +18,18 @@ function loadScript(src, id) {
     s.onerror = reject;
     document.body.appendChild(s);
   });
+}
+
+function mkUid(provider, profile = {}) {
+  // Google: profile.sub (OIDC), profile.email
+  // Kakao: res.id (숫자)
+  // Naver: naver.user.id
+  const sub = profile.sub || profile.id || profile.userId || "";
+  const email = profile.email || "";
+  if (sub) return `${provider}:${sub}`;
+  if (email) return `${provider}:${email}`;
+  // 최후 fallback
+  return `${provider}:${Date.now()}`;
 }
 
 const SocialLogin = ({ onNaverReady }) => {
@@ -99,30 +114,39 @@ const SocialLogin = ({ onNaverReady }) => {
     const clientId = process.env.REACT_APP_OAUTH_CLIENT;
     if (!clientId) return alert("구글 client_id(.env REACT_APP_OAUTH_CLIENT)가 필요합니다.");
 
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: "openid email profile",
-      callback: async (tokenResponse) => {
-        try {
-          const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-            headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-          });
-          const profile = await r.json();
+   const tokenClient = window.google.accounts.oauth2.initTokenClient({
+  client_id: clientId,
+  scope: "openid email profile",
+  callback: async (tokenResponse) => {
+    try {
+      const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+      });
+      const profile = await r.json();
 
-          const name =
-            profile.name ||
-            profile.given_name ||
-            (profile.email ? profile.email.split("@")[0] : "Google 사용자");
+      const uid = mkUid("google", profile); // ★ uid 생성
+      const name =
+        profile.name ||
+        profile.given_name ||
+        (profile.email ? profile.email.split("@")[0] : "Google 사용자");
 
-          login("google", { name, email: profile.email });
-          navigate("/", { replace: true });
-        } catch (err) {
-          console.error("구글 userinfo 실패:", err);
-          login("google", { name: "Google 사용자" });
-          navigate("/", { replace: true });
-        }
-      },
-    });
+      setSession(uid);               // ★ 세션 저장
+      grantSignupBonusOnce(uid);     // ★ 최초 1회만 쿠폰+적립금 지급
+
+      login("google", { uid, name, email: profile.email });
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("구글 userinfo 실패:", err);
+      // 최소 정보로 uid 생성 (fallback)
+      const uid = mkUid("google", { sub: "", email: "" });
+      setSession(uid);
+      grantSignupBonusOnce(uid);
+
+      login("google", { uid, name: "Google 사용자" });
+      navigate("/", { replace: true });
+    }
+  },
+});
 
     // ★ 실제 토큰 요청
     tokenClient.requestAccessToken({ prompt: "consent" });
@@ -136,19 +160,27 @@ const SocialLogin = ({ onNaverReady }) => {
     window.Kakao.Auth.login({
       scope: "profile_nickname",
       success: () => {
-        window.Kakao.API.request({
-          url: "/v2/user/me",
-          success: (res) => {
-            console.log("카카오 응답:", res);
-            const nickname =
-              res?.kakao_account?.profile?.nickname ??
-              res?.properties?.nickname ??
-              "";
-            login("kakao", { name: nickname });
-            navigate("/", { replace: true });
-          },
-          fail: (err) => alert("카카오 정보 요청 실패: " + JSON.stringify(err)),
-        });
+       window.Kakao.API.request({
+  url: "/v2/user/me",
+  success: (res) => {
+    console.log("카카오 응답:", res);
+
+    const profile = { id: res?.id, email: res?.kakao_account?.email };
+    const uid = mkUid("kakao", profile); // ★ uid 생성
+
+    const nickname =
+      res?.kakao_account?.profile?.nickname ??
+      res?.properties?.nickname ??
+      "Kakao 사용자";
+
+    setSession(uid);               // ★ 세션 저장
+    grantSignupBonusOnce(uid);     // ★ 최초 1회만 지급
+
+    login("kakao", { uid, name: nickname, email: profile.email });
+    navigate("/", { replace: true });
+  },
+  fail: (err) => alert("카카오 정보 요청 실패: " + JSON.stringify(err)),
+});
       },
       fail: (err) => alert("카카오 로그인 실패: " + JSON.stringify(err)),
     });

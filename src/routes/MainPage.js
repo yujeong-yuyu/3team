@@ -218,7 +218,7 @@ const BestGrid = memo(function BestGrid({ products: raw = [] }) {
         optionLabel: "기본 구성",
         thumb: p.image,            // ← 여기도 이미지 포함
         delivery: 0,
-      }, 1);  
+      }, 1);
       setShowModal(true);
     },
     []

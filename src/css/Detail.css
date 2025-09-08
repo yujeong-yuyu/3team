@@ -454,7 +454,8 @@
 }
 
 /* Review modal (scoped) */
-.detail-warp1 #rv-modal {
+.detail-warp1 #rv-modal,
+.detail-warp1 #rv-edit-modal {
     position: fixed;
     top: 20%;
     right: 20%;
@@ -470,7 +471,8 @@
     z-index: 2000;
 }
 
-.detail-warp1 #rv-modal .rvm-close {
+.detail-warp1 #rv-modal .rvm-close,
+.detail-warp1 #rv-edit-modal .rvm-close {
     position: absolute;
     top: 10px;
     right: 12px;
@@ -520,6 +522,15 @@
     font-size: 14px;
     line-height: 1.7;
     color: #5E472F;
+}
+
+.rv-actions .rv-edit-btn,
+.rv-actions .rv-del-btn {
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fafafa;
 }
 
 /* =========================

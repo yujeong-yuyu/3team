@@ -283,6 +283,8 @@
     filter: brightness(0.98);
 }
 
+
+
 /*------- 모달 공통 -----------*/
 .modal-backdrop {
     position: fixed;
@@ -297,7 +299,7 @@
 .gift-modal {
     /*   margin-right: 200px; */
     width: min(400px, 50vw);
-    background: #FFF7E4;
+    background: #FFFCF5;
     /* 따뜻한 베이지 톤 */
     border-radius: 28px;
     box-shadow: 0 6px 16px rgba(0, 0, 0, .2);
@@ -306,7 +308,7 @@
 
 .gift-modal-hero {
     position: relative;
-    background: #FFF7E4;
+    background: #FFFCF5;
     padding: 28px 28px 0;
 }
 
@@ -340,7 +342,7 @@ button {
 
 .gift-modal-body {
     padding: 28px 34px 8px;
-    background: #FFF7E4;
+    background: #FFFCF5;
 }
 
 .info-row {

@@ -75,7 +75,8 @@ h3 {
 /* 전역 변수: 기본 여백 + 푸터 겹침 보정 */
 :root {
   --fab-base-bottom: 15px;
-  --fab-push-up: 0px; /* JS가 필요시 값 업데이트 */
+  --fab-push-up: 0px;
+  /* JS가 필요시 값 업데이트 */
 }
 
 /* 플로팅 아이콘 */
@@ -83,7 +84,7 @@ h3 {
   position: fixed;
   right: 30px;
   bottom: calc(var(--fab-base-bottom) + var(--fab-push-up));
-  z-index: 1000;
+  z-index: 5000;
   transition: bottom .2s ease, transform .2s ease, opacity .2s ease;
   display: inline-flex;
   align-items: center;
@@ -96,7 +97,7 @@ h3 {
   position: fixed;
   right: 20px;
   bottom: 20px;
-  z-index: 999;
+  z-index: 5500;
   transition: bottom .2s ease, transform .2s ease, opacity .2s ease;
 }
 
@@ -106,4 +107,3 @@ h3 {
   opacity: 0;
   pointer-events: none;
 }
-
