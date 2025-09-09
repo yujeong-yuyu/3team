@@ -23,6 +23,32 @@ export function getAuthorId() {
   return ensureDeviceId();
 }
 
+/** 리스트 정화: 사용자 리뷰만 남기고, 중복 id 제거 */
+function sanitizeUserList(arr) {
+  if (!Array.isArray(arr)) return [];
+  // 사용자 리뷰의 최소 요건: id, authorId(작성자), createdAt
+  const onlyUser = arr.filter(
+    (it) =>
+      it &&
+      typeof it === "object" &&
+      typeof it.id === "string" &&
+      it.id.length > 0 &&
+      typeof it.authorId === "string" &&
+      it.authorId.length > 0 &&
+      typeof it.createdAt === "string" &&
+      it.createdAt.length > 0
+  );
+  // id 기준 dedupe
+  const seen = new Set();
+  const deduped = [];
+  for (const it of onlyUser) {
+    if (seen.has(it.id)) continue;
+    seen.add(it.id);
+    deduped.push(it);
+  }
+  return deduped;
+}
+
 /** 안전 setItem: 용량 초과 시 콜백으로 정리 전략 적용 */
 function safeSetItem(key, makeValue, pruneStrategies = []) {
   let value = makeValue();
@@ -46,12 +72,23 @@ function safeSetItem(key, makeValue, pruneStrategies = []) {
   }
 }
 
-/** 저장된 리뷰 목록 불러오기 */
+/** 저장된 리뷰 목록 불러오기 (사용자 리뷰만, 자동 정리) */
 export function getReviewsFor(productKey) {
+  const key = getKey(productKey);
   try {
-    const raw = localStorage.getItem(getKey(productKey));
+    const raw = localStorage.getItem(key);
     const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
+    const cleaned = sanitizeUserList(arr);
+
+    // 저장된 값에 기본리뷰가 섞여 있었다면 cleaned로 교체(자가치유)
+    if ((Array.isArray(arr) ? arr.length : 0) !== cleaned.length) {
+      try {
+        localStorage.setItem(key, JSON.stringify(cleaned));
+      } catch {
+        // 저장 실패해도 반환은 cleaned
+      }
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -60,7 +97,9 @@ export function getReviewsFor(productKey) {
 /** 리뷰 추가 + 전체 목록 반환 (용량 초과 시 자동 정리) */
 export function addReviewFor(productKey, review) {
   const key = getKey(productKey);
-  const list = getReviewsFor(productKey).slice(0, MAX_REVIEWS_PER_PRODUCT);
+  const baseList = getReviewsFor(productKey); // ← 이미 sanitize됨
+  const list = baseList.slice(0, MAX_REVIEWS_PER_PRODUCT);
+
   const item = {
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     name: review.name || "회원님",
@@ -127,7 +166,8 @@ export function addReviewFor(productKey, review) {
 /** 리뷰 수정(작성자 본인만) + 전체 목록 반환 */
 export function updateReviewFor(productKey, reviewId, updates, requesterId) {
   const key = getKey(productKey);
-  let list = getReviewsFor(productKey);
+  let list = getReviewsFor(productKey); // sanitize된 목록
+
   list = list.map((it) => {
     if (it.id !== reviewId) return it;
     if (requesterId && it.authorId && it.authorId !== requesterId) return it;
@@ -192,7 +232,7 @@ export function updateReviewFor(productKey, reviewId, updates, requesterId) {
 /** 리뷰 삭제(작성자 본인만) + 전체 목록 반환 */
 export function deleteReviewFor(productKey, reviewId, requesterId) {
   const key = getKey(productKey);
-  const list = getReviewsFor(productKey);
+  const list = getReviewsFor(productKey); // sanitize된 목록
   let next = list.filter((it) => {
     if (it.id !== reviewId) return true;
     if (requesterId && it.authorId && it.authorId !== requesterId) return true;

@@ -1,3 +1,4 @@
+// src/routes/Detail.js
 import React, {
   useEffect,
   useLayoutEffect,
@@ -203,8 +204,8 @@ export default function Detail() {
     const r1 = requestAnimationFrame(recalcBuybar);
     const r2 = requestAnimationFrame(recalcBuybar);
     return () => {
-      cancelAnimationFrame(r1);
-      cancelAnimationFrame(r2);
+    cancelAnimationFrame(r1);
+    cancelAnimationFrame(r2);
     };
   }, [optOpen, recalcBuybar]);
 
@@ -363,7 +364,7 @@ export default function Detail() {
       optionLabel: "기본 구성",
     };
 
-    navigate("/payment", {
+  navigate("/payment", {
       state: {
         lineItems: [lineItem],
         coupon: 0,
@@ -838,7 +839,7 @@ export default function Detail() {
                 {/* 선택 시 간단 미리보기 */}
                 {rvPhoto && (
                   <div className="rv-preview">
-                    <img src={rvPhoto} alt="첨부 미리보기" style={{ maxWidth: 140, borderRadius: 8 }} />
+                    <img src={rvPhoto} alt="첨부 미리보기" style={{ maxWidth: 140, borderRadius: 8, marginTop: 10 }} />
                   </div>
                 )}
 
@@ -1072,81 +1073,81 @@ export default function Detail() {
       </aside>
 
       {/* 리뷰 수정 모달 (본인 리뷰만) */}
-      <aside
-        id="rv-edit-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rve-title"
-        style={{ display: editState.open ? "block" : "none" }}
-      >
-        <button
-          type="button"
-          className="rvm-close"
-          aria-label="닫기"
-          onClick={() => setEditState((s) => ({ ...s, open: false }))}
+        <aside
+          id="rv-edit-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rve-title"
+          style={{ display: editState.open ? "block" : "none" }}
         >
-          ×
-        </button>
-        <div className="rvm-head">
-          <div className="rvm-avatar" aria-hidden="true" />
-          <div className="rvm-meta">
-            <h4 id="rve-title" className="rvm-name">리뷰 수정</h4>
+          {/* 1행: 닉네임 | 닫기 */}
+          <div className="rve-nick" id="rve-title">
+            {isLoggedIn?.local ? `${user?.name}님` : "회원님"}
           </div>
-        </div>
+          <button
+            type="button"
+            className="rvm-close"
+            aria-label="닫기"
+            onClick={() => setReviewModal((p) => ({ ...p, open: false }))}
+          >
+            ×
+          </button>
 
-        {/* 별점 편집 */}
-        <div className="rv-stars" role="radiogroup" aria-label="별점 수정" style={{ margin: "10px 0" }}>
-          {[1, 2, 3, 4, 5].map((v) => {
-            const filled = (editState.rating || 0) >= v;
-            return (
-              <button
-                type="button"
-                key={`edit-star-${v}`}
-                className={`star ${filled ? "on" : ""}`}
-                role="radio"
-                aria-checked={editState.rating === v}
-                aria-label={`${v}점`}
-                onClick={() => setEditState((s) => ({ ...s, rating: v }))}
-              >
-                {filled ? "★" : "☆"}
-              </button>
-            );
-          })}
-        </div>
+          {/* 2행: 별점 */}
+          <div className="rv-stars" role="radiogroup" aria-label="별점 수정">
+            {[1, 2, 3, 4, 5].map((v) => {
+              const filled = (editState.rating || 0) >= v;
+              return (
+                <button
+                  type="button"
+                  key={`edit-star-${v}`}
+                  className={`star ${filled ? "on" : ""}`}
+                  role="radio"
+                  aria-checked={editState.rating === v}
+                  aria-label={`${v}점`}
+                  onClick={() => setEditState((s) => ({ ...s, rating: v }))}
+                >
+                  {filled ? "★" : "☆"}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* 사진 교체 */}
-        <div className="rv-preview" style={{ marginBottom: 8 }}>
-          {editState.thumb && (
-            <img src={editState.thumb} alt="첨부 미리보기" style={{ maxWidth: 140, borderRadius: 8 }} />
-          )}
-        </div>
-        <label className="rv-photo-btn" style={{ display: "inline-block", marginBottom: 8 }}>
-          <input type="file" accept="image/*" hidden onChange={onPickEditPhoto} />
-          <span>사진 바꾸기</span>
-        </label>
+          {/* 3~4행: 이미지/버튼(좌) | 텍스트박스(우) */}
+          <div className="rv-preview">
+            {editState.thumb && (
+              <img
+                src={editState.thumb}
+                alt="첨부 미리보기"
+                style={{ borderRadius: 8 }}
+              />
+            )}
+          </div>
 
-        {/* 텍스트 수정 */}
-        <textarea
-          className="rv-text"
-          placeholder="후기를 수정하세요. (최소 10자)"
-          value={editState.text}
-          onChange={(e) => setEditState((s) => ({ ...s, text: e.target.value }))}
-          minLength={10}
-          required
-        />
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button className="rv-submit" type="button" onClick={saveEdit}>
+          <textarea
+            className="rv-text"
+            placeholder="후기를 수정하세요. (최소 10자)"
+            value={editState.text}
+            onChange={(e) => setEditState((s) => ({ ...s, text: e.target.value }))}
+            minLength={10}
+            required
+          />
+
+          <label className="rv-photo-btn">
+            <input type="file" accept="image/*" hidden onChange={onPickEditPhoto} />
+            <span>사진 바꾸기</span>
+          </label>
+
+          {/* 5행: 저장(좌) | 닫기(우) */}
+          <button
+            className="rv-edit-save"
+            type="button"
+            onClick={saveEdit}
+          >
             저장
           </button>
-          <button
-            className="rv-submit"
-            type="button"
-            onClick={() => setEditState((s) => ({ ...s, open: false }))}
-          >
-            취소
-          </button>
-        </div>
-      </aside>
+        </aside>
+
 
       {/* 확인 모달 */}
       {confirmState.open && (
@@ -1191,7 +1192,7 @@ export default function Detail() {
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => confirmState.onConfirm?.()}
+                onClick={() => confirmState.onConfirm?.() }
                 style={{ padding: "8px 12px", borderRadius: 8 }}
               >
                 확인

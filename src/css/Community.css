@@ -23,6 +23,13 @@
     font-family: "Playfair Display", serif;
 }
 
+.newsBanner {
+    width: 100%;
+    height: 550px;
+    margin-top: 20px;
+    background-color: #777;
+}
+
 .comTap {
     display: flex;
     justify-content: flex-end;

@@ -6,7 +6,7 @@ import {
   IoChatbubbleEllipsesOutline,
 } from "react-icons/io5";
 import "../css/Community.css";
-// import postsData from "../data/CommunityData.json"; // 기본 비우려면 사용 X
+import NewsCard from "../components/NewsCard";
 
 /* ----- 저장소 유틸 ----- */
 const STORAGE_KEY = "communityPosts";
@@ -20,25 +20,29 @@ const loadPosts = () => {
 };
 const savePosts = (list) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  // 다른 탭/페이지(Community2 등)에 변경 알림
-  window.dispatchEvent(new CustomEvent("communityPosts:updated", { detail: { posts: list } }));
+  window.dispatchEvent(
+    new CustomEvent("communityPosts:updated", { detail: { posts: list } })
+  );
 };
 
 function ComCard({ post, onLike }) {
   const navigate = useNavigate();
   const goDetail = () => {
-    // id가 없으면 상세 없다고 가정
     if (post.id != null) navigate(`/Community3/${post.id}`);
   };
 
-  const userImg = post.userImg || "https://00anuyh.github.io/SouvenirImg/user.png";
+  const userImg =
+    post.userImg || "https://00anuyh.github.io/SouvenirImg/user.png";
 
   let mainImg = "/img/default-image.png";
   if (post.image) {
     mainImg = post.image;
   } else if (post.photos && post.photos.length > 0) {
     const firstPhoto = post.photos[0];
-    mainImg = typeof firstPhoto === "string" ? firstPhoto : URL.createObjectURL(firstPhoto);
+    mainImg =
+      typeof firstPhoto === "string"
+        ? firstPhoto
+        : URL.createObjectURL(firstPhoto);
   }
 
   return (
@@ -57,13 +61,10 @@ function ComCard({ post, onLike }) {
         </div>
 
         <div className="like-tag-mes">
-          {/* ❤️ 좋아요: 클릭 시 증가 */}
           <div role="button" tabIndex={0} onClick={() => onLike(post)}>
             <IoHeartOutline className="ltm-icon" aria-hidden="true" />
             <span className="ltm-num">{Number(post.likes || 0)}</span>
           </div>
-
-          {/* 태그/댓글은 고정 or 별도 로직 추가 가능 */}
           <div role="button" tabIndex={0}>
             <IoPricetagOutline className="ltm-icon" aria-hidden="true" />
             <span className="ltm-num">{Number(post.tagsCount || 0)}</span>
@@ -82,10 +83,9 @@ export default function Community() {
   const navigate = useNavigate();
   const writeNavigate = () => navigate("/Community2");
 
-  // ✅ 로컬 저장 글을 state로 관리 (렌더마다 재계산 X)
+  /* ------------------- 커뮤니티 글 ------------------- */
   const [posts, setPosts] = useState(() => loadPosts());
 
-  // 다른 탭/페이지(Community2 포함)에서 저장소가 바뀌면 동기화
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === STORAGE_KEY) setPosts(loadPosts());
@@ -99,20 +99,20 @@ export default function Community() {
     };
   }, []);
 
-  // ✅ 좋아요 증가 핸들러 (저장소 + state 동시 업데이트)
   const handleLike = useCallback((target) => {
     setPosts((prev) => {
-      // id 기준 업데이트 (id 없으면 같은 객체 참조로 비교)
       const next = prev.map((p) => {
-        const isTarget = (target.id != null && p.id === target.id) || p === target;
-        return isTarget ? { ...p, likes: Number(p.likes || 0) + 1 } : p;
+        const isTarget =
+          (target.id != null && p.id === target.id) || p === target;
+        return isTarget
+          ? { ...p, likes: Number(p.likes || 0) + 1 }
+          : p;
       });
       savePosts(next);
       return next;
     });
   }, []);
 
-  // ✅ 페이지네이션
   const PAGE_SIZE = 5;
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -129,8 +129,69 @@ export default function Community() {
     setCurrentPage(p);
   };
 
+  /* ------------------- 뉴스 API ------------------- */
+  const [slides, setSlides] = useState([]);
+  const [slideIdx, setSlideIdx] = useState(0);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        const res = await fetch(
+          `https://newsapi.org/v2/top-headlines?country=kr&pageSize=5&apiKey=${process.env.REACT_APP_NEWS_KEY}`
+        );
+        const data = await res.json();
+
+        if (data.articles) {
+          const mapped = data.articles.map((a) => ({
+            img:
+              a.urlToImage ||
+              "https://newsapi.org/v2/everything?q=tesla&from=2025-08-09&sortBy=publishedAt&apiKey=16eae59704f74f95981d6dfb4c97554d",
+            source: a.source?.name || "뉴스",
+            time: new Date(a.publishedAt).toLocaleString("ko-KR", {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            title: a.title || "",
+            likes: Math.floor(Math.random() * 10), // 임의값
+            comments: Math.floor(Math.random() * 5), // 임의값
+          }));
+          setSlides(mapped);
+        }
+      } catch (err) {
+        console.error("뉴스 불러오기 실패:", err);
+      }
+    };
+
+    fetchNews();
+  }, []);
+
+  const totalSlides = slides.length;
+  const nextSlide = useCallback(() => {
+    setSlideIdx((i) => (i + 1) % totalSlides);
+  }, [totalSlides]);
+  const prevSlide = useCallback(() => {
+    setSlideIdx((i) => (i - 1 + totalSlides) % totalSlides);
+  }, [totalSlides]);
+
+  /* ------------------- 렌더 ------------------- */
   return (
     <div className="comwarp1">
+      <div className="newsBanner">
+        {slides.length > 0 ? (
+          <NewsCard
+            {...slides[slideIdx]}
+            index={slideIdx}
+            total={totalSlides}
+            onPrev={totalSlides > 1 ? prevSlide : undefined}
+            onNext={totalSlides > 1 ? nextSlide : undefined}
+          />
+        ) : (
+          <p>뉴스 불러오는 중...</p>
+        )}
+      </div>
+
       <div className="toptitle">
         <div className="titleleft" />
         <h2>Community</h2>
@@ -156,7 +217,9 @@ export default function Community() {
         ) : (
           <>
             {pagePosts.map((post, idx) => (
-              <React.Fragment key={post.id ?? `p-${(currentPage - 1) * PAGE_SIZE + idx}`}>
+              <React.Fragment
+                key={post.id ?? `p-${(currentPage - 1) * PAGE_SIZE + idx}`}
+              >
                 <ComCard post={post} onLike={handleLike} />
                 {idx !== pagePosts.length - 1 && <div className="comLine" />}
               </React.Fragment>
@@ -164,8 +227,11 @@ export default function Community() {
           </>
         )}
 
-        {/* ✅ 페이지네이션 (항상 노출, 1페이지만 있어도 보여짐) */}
-        <div className="comPageNum" role="navigation" aria-label="페이지네이션">
+        <div
+          className="comPageNum"
+          role="navigation"
+          aria-label="페이지네이션"
+        >
           <button
             type="button"
             onClick={() => goPage(currentPage - 1)}
@@ -174,8 +240,12 @@ export default function Community() {
             이전
           </button>
 
-          {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map((n) => {
-            const active = n === Math.min(currentPage, Math.max(1, totalPages));
+          {Array.from(
+            { length: Math.max(1, totalPages) },
+            (_, i) => i + 1
+          ).map((n) => {
+            const active =
+              n === Math.min(currentPage, Math.max(1, totalPages));
             return (
               <button
                 type="button"
@@ -193,7 +263,9 @@ export default function Community() {
           <button
             type="button"
             onClick={() => goPage(currentPage + 1)}
-            disabled={Math.max(1, totalPages) <= 1 || currentPage === totalPages}
+            disabled={
+              Math.max(1, totalPages) <= 1 || currentPage === totalPages
+            }
           >
             다음
           </button>
