@@ -1,5 +1,7 @@
 import React, { useState } from "react";
+
 import { useParams, useNavigate } from "react-router-dom";
+
 import {
   IoHeartOutline,
   IoPricetagOutline,
@@ -8,6 +10,7 @@ import {
 import { FaRegEdit, FaRegTrashAlt } from "react-icons/fa";
 import "../css/Community3.css";
 import postsData from "../data/CommunityData.json";
+
 import { useAuth } from "../context/AuthContext"; // AuthContext에서 로그인 정보
 
 const Community3 = () => {
@@ -15,10 +18,14 @@ const Community3 = () => {
   const navigate = useNavigate();
   const { isLoggedIn, user } = useAuth();
 
+
   const savedPosts = JSON.parse(localStorage.getItem("communityPosts")) || [];
   const allPosts = [...savedPosts, ...postsData];
 
   const post = allPosts.find((p) => String(p.id) === String(id));
+
+
+  // 훅은 항상 최상위에서 호출
 
   const photos =
     post?.photos && post.photos.length > 0
@@ -66,6 +73,7 @@ const Community3 = () => {
     }
   };
 
+
   return (
     <div className="warp1">
       <div className="toptitle">
@@ -96,6 +104,7 @@ const Community3 = () => {
             <p className="detail-name">{post.author || post.user}</p>
 
             <div className="meta-actions">
+
               {/* 로그인 상태 && 본인 글일 경우만 수정/삭제 버튼 표시 */}
               {isLoggedIn?.local && user?.name === post.author && (
                 <>
@@ -109,6 +118,7 @@ const Community3 = () => {
                   </div>
                 </>
               )}
+
             </div>
           </div>
 

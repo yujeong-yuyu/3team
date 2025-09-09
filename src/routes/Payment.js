@@ -205,6 +205,7 @@ export default function Payment() {
                   <button
                     type="button"
                     onClick={() => {
+
                       const element = document.getElementById("postcode-container");
                       if (!element) return;
 
@@ -225,11 +226,11 @@ export default function Payment() {
                       }).embed(element);
 
                       element.style.display = "block"; // 레이어 보이기
+
                     }}
                   >
                     우편번호 검색
                   </button>
-
 
                 </div>
               </div>
@@ -249,6 +250,7 @@ export default function Payment() {
                 />
               </div>
             </li>
+
             {/* -------------------- 레이어 컨테이너 -------------------- */}
             <div
               id="postcode-container"
@@ -286,6 +288,7 @@ export default function Payment() {
                 ✕ 닫기
               </button>
             </div>
+
 
 
 

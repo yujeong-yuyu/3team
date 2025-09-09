@@ -7,13 +7,16 @@ import {
 } from "react-icons/io5";
 import "../css/Community.css";
 import postsData from "../data/CommunityData.json"; // 기존 데이터
+
 import { useAuth } from "../context/AuthContext"; // AuthContext 불러오기
+
 
 function ComCard({ post }) {
   const navigate = useNavigate();
   const CommunityDetailNavigate = () => {
     navigate(`/Community3/${post.id}`);
   };
+
 
   const userImg =
     post.userImg || "https://00anuyh.github.io/SouvenirImg/user.png";
@@ -22,6 +25,7 @@ function ComCard({ post }) {
   if (post.image) {
     mainImg = post.image;
   } else if (post.photos && post.photos.length > 0) {
+
     const firstPhoto = post.photos[0];
     mainImg =
       typeof firstPhoto === "string"
@@ -66,6 +70,7 @@ function ComCard({ post }) {
 
 export default function Community() {
   const navigate = useNavigate();
+
   const { isLoggedIn } = useAuth(); // 로그인 상태 가져오기
 
   const writeNavigate = () => {
@@ -82,6 +87,7 @@ export default function Community() {
 
   const savedPosts = JSON.parse(localStorage.getItem("communityPosts")) || [];
   const allPosts = [...savedPosts, ...postsData];
+
 
   return (
     <div className="warp1">
