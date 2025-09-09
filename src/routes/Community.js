@@ -8,22 +8,24 @@ import {
 import "../css/Community.css";
 import postsData from "../data/CommunityData.json"; // 기존 데이터
 
+import { useAuth } from "../context/AuthContext"; // AuthContext 불러오기
+
+
 function ComCard({ post }) {
   const navigate = useNavigate();
   const CommunityDetailNavigate = () => {
     navigate(`/Community3/${post.id}`);
   };
 
-  // 항상 JSON에서 가져온 userImg 또는 기본 이미지
+
   const userImg =
     post.userImg || "https://00anuyh.github.io/SouvenirImg/user.png";
 
-  // 메인 이미지
   let mainImg = "/img/default-image.png";
   if (post.image) {
-    mainImg = post.image; // 기존 글
+    mainImg = post.image;
   } else if (post.photos && post.photos.length > 0) {
-    // 새 글
+
     const firstPhoto = post.photos[0];
     mainImg =
       typeof firstPhoto === "string"
@@ -69,11 +71,23 @@ function ComCard({ post }) {
 export default function Community() {
   const navigate = useNavigate();
 
-  const writeNavigate = () => navigate("/Community2");
+  const { isLoggedIn } = useAuth(); // 로그인 상태 가져오기
 
-  // 로컬에 저장된 글 불러오기
+  const writeNavigate = () => {
+  if (!isLoggedIn?.local) {
+    const goLogin = window.confirm("로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?");
+    if (goLogin) {
+      navigate("/Login");
+    }
+    return; // 로그인 안 되면 이동 차단
+  }
+  navigate("/Community2");
+};
+
+
   const savedPosts = JSON.parse(localStorage.getItem("communityPosts")) || [];
-  const allPosts = [...savedPosts, ...postsData]; // 새 글 맨 위
+  const allPosts = [...savedPosts, ...postsData];
+
 
   return (
     <div className="warp1">

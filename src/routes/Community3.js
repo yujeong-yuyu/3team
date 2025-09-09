@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { useParams } from "react-router-dom";
+
+import { useParams, useNavigate } from "react-router-dom";
+
 import {
   IoHeartOutline,
   IoPricetagOutline,
@@ -9,15 +11,22 @@ import { FaRegEdit, FaRegTrashAlt } from "react-icons/fa";
 import "../css/Community3.css";
 import postsData from "../data/CommunityData.json";
 
+import { useAuth } from "../context/AuthContext"; // AuthContext에서 로그인 정보
+
 const Community3 = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { isLoggedIn, user } = useAuth();
+
 
   const savedPosts = JSON.parse(localStorage.getItem("communityPosts")) || [];
   const allPosts = [...savedPosts, ...postsData];
 
   const post = allPosts.find((p) => String(p.id) === String(id));
 
+
   // 훅은 항상 최상위에서 호출
+
   const photos =
     post?.photos && post.photos.length > 0
       ? post.photos
@@ -26,8 +35,44 @@ const Community3 = () => {
       : [];
   const [mainPhoto, setMainPhoto] = useState(photos[0] || "");
 
-  // post가 없으면 JSX에서 처리
   if (!post) return <p>글을 찾을 수 없습니다.</p>;
+
+  // 수정 버튼 클릭
+  const handleEdit = () => {
+    if (!isLoggedIn?.local) {
+      const goLogin = window.confirm(
+        "로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?"
+      );
+      if (goLogin) navigate("/Login");
+      return;
+    }
+    if (user?.name !== post.author) {
+      alert("본인 글만 수정할 수 있습니다.");
+      return;
+    }
+    navigate("/Community2", { state: { post } });
+  };
+
+  // 삭제 버튼 클릭
+  const handleDelete = () => {
+    if (!isLoggedIn?.local) {
+      const goLogin = window.confirm(
+        "로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?"
+      );
+      if (goLogin) navigate("/Login");
+      return;
+    }
+    if (user?.name !== post.author) {
+      alert("본인 글만 삭제할 수 있습니다.");
+      return;
+    }
+    if (window.confirm("정말 삭제하시겠습니까?")) {
+      const newPosts = savedPosts.filter((p) => p.id !== post.id);
+      localStorage.setItem("communityPosts", JSON.stringify(newPosts));
+      navigate("/Community");
+    }
+  };
+
 
   return (
     <div className="warp1">
@@ -59,14 +104,21 @@ const Community3 = () => {
             <p className="detail-name">{post.author || post.user}</p>
 
             <div className="meta-actions">
-              <div className="meta-action">
-                <FaRegEdit style={{ fontSize: "20px" }} />
-                <span className="detail-editor">수정</span>
-              </div>
-              <div className="meta-action">
-                <FaRegTrashAlt style={{ fontSize: "20px" }} />
-                <span className="detail-editor">삭제</span>
-              </div>
+
+              {/* 로그인 상태 && 본인 글일 경우만 수정/삭제 버튼 표시 */}
+              {isLoggedIn?.local && user?.name === post.author && (
+                <>
+                  <div className="meta-action" onClick={handleEdit}>
+                    <FaRegEdit style={{ fontSize: "20px" }} />
+                    <span className="detail-editor">수정</span>
+                  </div>
+                  <div className="meta-action" onClick={handleDelete}>
+                    <FaRegTrashAlt style={{ fontSize: "20px" }} />
+                    <span className="detail-editor">삭제</span>
+                  </div>
+                </>
+              )}
+
             </div>
           </div>
 

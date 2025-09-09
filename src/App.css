@@ -16,9 +16,11 @@
   box-sizing: border-box;
 }
 
+
 body {
   cursor: url("/public/img/mouse.png") 3 3, auto;
 }
+
 
 /* 부드러운 스크롤 */
 html {

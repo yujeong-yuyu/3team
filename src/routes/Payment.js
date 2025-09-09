@@ -205,12 +205,33 @@ export default function Payment() {
                   <button
                     type="button"
                     onClick={() => {
-                      // TODO: 다음(카카오) 우편번호 API 연동
-                      alert("우편번호 검색 모듈을 연결하세요.");
+
+                      const element = document.getElementById("postcode-container");
+                      if (!element) return;
+
+                      // 팝업 대신 레이어로 보여주기
+                      new window.daum.Postcode({
+                        popup: false, // 레이어 모드
+                        width: 500,
+                        height: 400,
+                        oncomplete: function (data) {
+                          setZip(data.zonecode);
+                          setAddr1(data.address + (data.buildingName ? ` (${data.buildingName})` : ""));
+                          setAddr2(""); // 상세주소는 비워두고 사용자 입력
+                          element.style.display = "none"; // 선택 후 레이어 숨기기
+                        },
+                        onclose: function () {
+                          element.style.display = "none"; // 닫기 버튼 클릭 시 레이어 숨기기
+                        },
+                      }).embed(element);
+
+                      element.style.display = "block"; // 레이어 보이기
+
                     }}
                   >
                     우편번호 검색
                   </button>
+
                 </div>
               </div>
 
@@ -229,6 +250,47 @@ export default function Payment() {
                 />
               </div>
             </li>
+
+            {/* -------------------- 레이어 컨테이너 -------------------- */}
+            <div
+              id="postcode-container"
+              style={{
+                display: "none",
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                zIndex: 1000,
+                border: "1px solid #ccc",
+                width: "500px",
+                height: "450px", // 높이 조금 늘려서 버튼 공간 확보
+                backgroundColor: "#fff",
+                paddingTop: "40px", // 버튼 공간 확보
+              }}
+            >
+              {/* 닫기 버튼 */}
+              <button
+                type="button"
+                style={{
+                  position: "absolute",
+                  top: "5px",
+                  right: "5px",
+                  padding: "5px 10px",
+                  cursor: "pointer",
+                  zIndex: 1001,
+                  fontSize: "17px",
+                }}
+                onClick={() => {
+                  const element = document.getElementById("postcode-container");
+                  element.style.display = "none";
+                }}
+              >
+                ✕ 닫기
+              </button>
+            </div>
+
+
+
 
             <li className="phone">
               <label>연락처</label>
